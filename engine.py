@@ -342,3 +342,4 @@ else:
 # Add function to convert moves to san and uci strings
 # Add check, checkmate, stalemate and resignation support
 # And support for dead pieces
+# Count number of nodes visited during search and use that to calculate nps
