@@ -236,7 +236,7 @@ class Board:
 
         if captured_piece:
             captured_player = captured_piece.player
-            self.player_points[self.current_player] += self.get_piece_value(captured_piece)
+            self.player_points[piece.player] += self.get_piece_value(captured_piece) #
         self.board[move.to_loc.row][move.to_loc.col] = piece
         if move.promotion_piece_type:
             self.board[move.to_loc.row][move.to_loc.col].piece_type = move.promotion_piece_type
@@ -244,10 +244,11 @@ class Board:
         return captured_player
 
     def undo_move(self, move, captured_piece, captured_player):
+        piece = self.board[move.to_loc.row][move.to_loc.col]
         self.board[move.from_loc.row][move.from_loc.col] = self.board[move.to_loc.row][move.to_loc.col]
         self.board[move.to_loc.row][move.to_loc.col] = captured_piece
         if captured_piece:
-            self.player_points[self.current_player] -= self.get_piece_value(captured_piece)
+            self.player_points[piece.player] -= self.get_piece_value(captured_piece) #
         self.current_player = Player((self.current_player.value - 1) % 4)
 
 
@@ -314,11 +315,12 @@ def get_best_move(board, depth):
     return best_move, best_scores
 
 board = Board()
-# board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
-# board.current_player = Player.RED
+board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
+board.current_player = Player.RED
+# see if best move for red is to take the queen
 
-# Example of how to call get_best_move to get the best move
-best_move, scores = get_best_move(board, 6) 
+# Calling get_best_move and looking at the output
+best_move, scores = get_best_move(board, 4) 
 if best_move:
     print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}) ")
     print(f"Scores: {scores}")
