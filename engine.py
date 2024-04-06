@@ -280,83 +280,6 @@ class Board:
     def is_game_over(self):
         return len(self.active_players) == 1
 
-
-def maxn(board, depth):
-    if depth == 0 or board.is_game_over():
-        scores = board.evaluate()
-        #print(f"Depth: {depth}, Scores: {scores}")
-        return scores
-    
-    max_scores = {player: float('-inf') for player in Player}
-    best_move = None
-    
-    legal_moves = board.get_legal_moves(board.current_player)
-    if not legal_moves:
-        max_scores[board.current_player] = float('-inf')
-        #print(f"Depth: {depth}, No legal moves, Scores: {max_scores}")
-        return max_scores
-    
-    for move in legal_moves:
-        captured_piece = board.board[move.to_loc.row][move.to_loc.col]
-        captured_player = board.make_move(move)
-        scores = maxn(board, depth - 1)
-        board.undo_move(move, captured_piece, captured_player)
-        
-        if scores[board.current_player] > max_scores[board.current_player]:
-            max_scores = scores
-            best_move = move
-        
-        #print(f"Depth: {depth}, Move: {move}, Scores: {scores}")
-    
-    if depth == 3:
-        return best_move, max_scores
-    return max_scores
-
-# def minimax(board, depth, alpha, beta, maximizing_player):
-#     if depth == 0 or board.is_game_over():
-#       return board.evaluate()[board.current_player]
-#     if maximizing_player:
-#       max_eval = float('-inf')
-#       for move in board.get_legal_moves(board.current_player):
-#           captured_piece = board.board[move.to_loc.row][move.to_loc.col]
-#           board.make_move(move)
-#           eval = minimax(board, depth - 1, alpha, beta, False)
-#           board.undo_move(move, captured_piece)
-#           max_eval = max(max_eval, eval)
-#           alpha = max(alpha, eval)
-#           if beta <= alpha:
-#               break
-#       return max_eval
-#     else:
-#         min_eval = float('inf')
-#         for move in board.get_legal_moves(board.current_player):
-#             captured_piece = board.board[move.to_loc.row][move.to_loc.col]
-#             board.make_move(move)
-#             eval = minimax(board, depth - 1, alpha, beta, True)
-#             board.undo_move(move, captured_piece)
-#             min_eval = min(min_eval, eval)
-#             beta = min(beta, eval)
-#             if beta <= alpha:
-#                 break
-#         return min_eval
-        
-# def get_best_move(board, depth):
-#   best_move = None
-#   max_eval = float('-inf')
-#   for move in board.get_legal_moves(board.current_player):
-#     captured_piece = board.board[move.to_loc.row][move.to_loc.col]
-#     board.make_move(move)
-#     eval = minimax(board, depth - 1, float('-inf'), float('inf'), False)
-#     board.undo_move(move, captured_piece)
-#   if eval > max_eval:
-#     max_eval = eval
-#     best_move = move
-#     return best_move
-  
-# board = Board()
-# board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3))) # Blue queen(6, 0) to (11, 3)
-# board.current_player = Player.RED
-
 def negamax4(board, depth, alpha, beta, player):
     if depth == 0 or board.is_game_over():
         scores = board.evaluate()
@@ -388,7 +311,7 @@ def get_best_move(board, depth):
     return best_move
 
 board = Board()
-board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
+board.make_move(Move(BoardLocation(6, 0), BoardLocation(10, 4)))  # Blue queen(6, 0) to (11, 3)
 board.current_player = Player.RED
 
 # # while not board.is_game_over():
