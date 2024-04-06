@@ -173,11 +173,11 @@ class Board:
         # Promotion moves
         promotion_row = 5 if player == Player.RED else 8 if player == Player.BLUE else 8 if player == Player.YELLOW else 5
         if (player == Player.RED and row == promotion_row) or (player == Player.BLUE and col == promotion_row) or (player == Player.YELLOW and row == promotion_row) or (player == Player.GREEN and col == promotion_row):
+            promotion_moves = []
             for move in moves:
                 for piece_type in [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK, PieceType.QUEEN, PieceType.ONE_POINT_QUEEN]:
-                    # moves.append(Move(BoardLocation(move.from_loc.row, move.from_loc.col), BoardLocation(move.to_loc.row, move.to_loc.col), piece_type))
-                    moves.append(Move(move.from_loc, move.to_loc, piece_type))
-
+                    promotion_moves.append(Move(BoardLocation(move.from_loc.row, move.from_loc.col), BoardLocation(move.to_loc.row, move.to_loc.col), piece_type))
+            moves.extend(promotion_moves)
 
         return moves
 
@@ -257,7 +257,7 @@ class Board:
         eliminated_players = []
 
         piece = self.board[move.from_loc.row][move.from_loc.col]
-        self.board[move.from_loc.row][move.from_loc.col] = None
+        self.board[move.from_loc.row][move.from_loc.col] = None ###################################
         captured_piece = self.board[move.to_loc.row][move.to_loc.col]
         captured_player = captured_piece.player if captured_piece else None
 
@@ -308,9 +308,9 @@ class Board:
                 # will have to add double and triple checkmate support later
 
         self.current_player = Player((self.current_player.value + 1) % 4)
-        return captured_player
+        return captured_piece, eliminated_players
 
-    def undo_move(self, move, captured_piece, captured_player, eliminated_players):
+    def undo_move(self, move, captured_piece, eliminated_players):
         piece = self.board[move.to_loc.row][move.to_loc.col]
         self.board[move.from_loc.row][move.from_loc.col] = self.board[move.to_loc.row][move.to_loc.col]
         self.board[move.to_loc.row][move.to_loc.col] = captured_piece
@@ -375,7 +375,11 @@ class Board:
         return len(self.active_players) == 1 or all(self.is_checkmate(player) or self.is_stalemate(player) for player in self.active_players)
     
     def is_in_check(self, player, move=None): # rename this?
-        captured_piece = None ######################################################### needed for line 352?
+        #captured_piece, eliminated_players = self.make_move(move) ######################################################### needed for line 352?
+        
+        captured_piece = None
+        if move:
+            captured_piece, eliminated_players = self.make_move(move)
         # C:\Users\dell2\source\repos\python-projects\4pc-ffa>python engine.py
         # Traceback (most recent call last):
         #   File "C:\Users\dell2\source\repos\python-projects\4pc-ffa\engine.py", line 410, in <module>
@@ -395,10 +399,11 @@ class Board:
         # C:\Users\dell2\source\repos\python-projects\4pc-ffa>
 
         # Make the move temporarily if provided
-        if move:
-            captured_piece = self.board[move.to_loc.row][move.to_loc.col]
-            self.board[move.from_loc.row][move.from_loc.col] = None
-            self.board[move.to_loc.row][move.to_loc.col] = self.board[move.from_loc.row][move.from_loc.col]
+        #captured_piece, eliminated_players = self.make_move(move)
+        # if move:
+        #     captured_piece = self.board[move.to_loc.row][move.to_loc.col]
+        #     self.board[move.from_loc.row][move.from_loc.col] = None
+        #     self.board[move.to_loc.row][move.to_loc.col] = self.board[move.from_loc.row][move.from_loc.col]
 
         king_loc = None
         for row in range(14):
@@ -413,19 +418,19 @@ class Board:
         if king_loc:
             for opponent in Player:
                 if opponent != player:
-                    for move in self.get_legal_moves(opponent):
-                        if move.to_loc.row == king_loc.row and move.to_loc.col == king_loc.col:
+                    for opponent_move in self.get_legal_moves(opponent):
+                        if opponent_move.to_loc.row == king_loc.row and opponent_move.to_loc.col == king_loc.col:
                             # Undo the temporary move if provided
                             if move:
-                                self.board[move.from_loc.row][move.from_loc.col] = self.board[move.to_loc.row][move.to_loc.col]
-                                self.board[move.to_loc.row][move.to_loc.col] = captured_piece
+                                self.undo_move(move, captured_piece, eliminated_players)
                             return True
 
         # Undo the temporary move if provided
+        # if move:
+        #     self.board[move.from_loc.row][move.from_loc.col] = self.board[move.to_loc.row][move.to_loc.col]
+        #     self.board[move.to_loc.row][move.to_loc.col] = captured_piece
         if move:
-            self.board[move.from_loc.row][move.from_loc.col] = self.board[move.to_loc.row][move.to_loc.col]
-            self.board[move.to_loc.row][move.to_loc.col] = captured_piece
-
+            self.undo_move(move, captured_piece, eliminated_players)
         return False
 
     def is_checkmate(self, player):
