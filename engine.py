@@ -320,7 +320,7 @@ board.current_player = Player.RED
 # see if best move for red is to take the queen
 
 # Calling get_best_move and looking at the output
-best_move, scores = get_best_move(board, 4) 
+best_move, scores = get_best_move(board, 1) 
 if best_move:
     print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}) ")
     print(f"Scores: {scores}")
@@ -335,3 +335,10 @@ else:
 # #print(f"Scores: {board.evaluate()}")
 
 # #print(f"Game over! Final scores: {board.evaluate()}")
+
+
+# TODO:
+# Add FEN Parser
+# Add function to convert moves to san and uci strings
+# Add check, checkmate, stalemate and resignation support
+# And support for dead pieces
