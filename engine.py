@@ -8,6 +8,8 @@ class PieceType(Enum):
     ROOK = 4
     QUEEN = 5
     KING = 6
+    ONE_POINT_QUEEN = 7
+
 
 class Player(Enum):
     RED = 0
@@ -19,6 +21,8 @@ class Piece:
     def __init__(self, player, piece_type):
         self.player = player
         self.piece_type = piece_type
+        self.is_dead = False
+
 
 class BoardLocation:
     def __init__(self, row, col):
@@ -108,10 +112,14 @@ class Board:
                         legal_moves.extend(self.get_bishop_moves(row, col))
                     elif piece.piece_type == PieceType.ROOK:
                         legal_moves.extend(self.get_rook_moves(row, col))
-                    elif piece.piece_type == PieceType.QUEEN:
+                    elif piece.piece_type == PieceType.QUEEN or piece.piece_type == PieceType.ONE_POINT_QUEEN:
                         legal_moves.extend(self.get_queen_moves(row, col))
                     elif piece.piece_type == PieceType.KING:
                         legal_moves.extend(self.get_king_moves(row, col))
+
+        # Filter out moves that would put the current player in check
+        #legal_moves = [move for move in legal_moves if not self.is_in_check(player, move)] ############ --------- problematic line
+        
         return legal_moves
 
     def get_pawn_moves(self, row, col):
@@ -166,8 +174,10 @@ class Board:
         promotion_row = 5 if player == Player.RED else 8 if player == Player.BLUE else 8 if player == Player.YELLOW else 5
         if (player == Player.RED and row == promotion_row) or (player == Player.BLUE and col == promotion_row) or (player == Player.YELLOW and row == promotion_row) or (player == Player.GREEN and col == promotion_row):
             for move in moves:
-                for piece_type in [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK, PieceType.QUEEN]:
+                for piece_type in [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK, PieceType.QUEEN, PieceType.ONE_POINT_QUEEN]:
+                    # moves.append(Move(BoardLocation(move.from_loc.row, move.from_loc.col), BoardLocation(move.to_loc.row, move.to_loc.col), piece_type))
                     moves.append(Move(move.from_loc, move.to_loc, piece_type))
+
 
         return moves
 
@@ -228,27 +238,105 @@ class Board:
         # TODO: Add castling moves
         return moves
 
+    # def make_move(self, move):
+    #     piece = self.board[move.from_loc.row][move.from_loc.col]
+    #     self.board[move.from_loc.row][move.from_loc.col] = None
+    #     captured_piece = self.board[move.to_loc.row][move.to_loc.col]
+    #     captured_player = captured_piece.player if captured_piece else None
+
+    #     if captured_piece:
+    #         captured_player = captured_piece.player
+    #         self.player_points[piece.player] += self.get_piece_value(captured_piece) #
+    #     self.board[move.to_loc.row][move.to_loc.col] = piece
+    #     if move.promotion_piece_type:
+    #         self.board[move.to_loc.row][move.to_loc.col].piece_type = move.promotion_piece_type
+    #     self.current_player = Player((self.current_player.value + 1) % 4)
+    #     return captured_player
+
     def make_move(self, move):
+        eliminated_players = []
+
         piece = self.board[move.from_loc.row][move.from_loc.col]
         self.board[move.from_loc.row][move.from_loc.col] = None
         captured_piece = self.board[move.to_loc.row][move.to_loc.col]
         captured_player = captured_piece.player if captured_piece else None
 
-        if captured_piece:
+        if captured_piece and not captured_piece.is_dead:
             captured_player = captured_piece.player
-            self.player_points[piece.player] += self.get_piece_value(captured_piece) #
+            self.player_points[piece.player] += self.get_piece_value(captured_piece)
         self.board[move.to_loc.row][move.to_loc.col] = piece
         if move.promotion_piece_type:
             self.board[move.to_loc.row][move.to_loc.col].piece_type = move.promotion_piece_type
+
+        # Check for checkmate and stalemate
+        for player in self.active_players:
+            if self.is_checkmate(player):
+                self.player_points[self.current_player] += 20  # Checkmate points
+                self.eliminate_player(player)
+                eliminated_players.append(player)
+
+                break # added break to fix bug (see below)
+                # C:\Users\dell2\source\repos\python-projects\4pc-ffa>python engine.py
+                # Traceback (most recent call last):
+                #   File "C:\Users\dell2\source\repos\python-projects\4pc-ffa\engine.py", line 429, in <module>
+                #     board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
+                #     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                #   File "C:\Users\dell2\source\repos\python-projects\4pc-ffa\engine.py", line 268, in make_move
+                #     for player in self.active_players:
+                # RuntimeError: Set changed size during iteration
+
+                # C:\Users\dell2\source\repos\python-projects\4pc-ffa>python engine.py
+            elif self.is_stalemate(player):
+                if player == self.current_player:
+                    self.player_points[player] += 20  # Stalemate points for current player
+                else:
+                    # Distribute stalemate points among remaining players
+                    active_players = [p for p in self.active_players if p != player]
+                    # stalemate_points = 20 // len(active_players)
+                    if len(active_players) == 2: 
+                        stalemate_points == 20
+                    elif len(active_players) == 3: # 2 will be left -> 20/2 = 10
+                        stalemate_points = 10
+                    elif len(active_players) == 4: 
+                        stalemate_points == 7
+                    for p in active_players:
+                        self.player_points[p] += stalemate_points
+                self.eliminate_player(player)
+                eliminated_players.append(player)
+                break
+            
+                # will have to add double and triple checkmate support later
+
         self.current_player = Player((self.current_player.value + 1) % 4)
         return captured_player
 
-    def undo_move(self, move, captured_piece, captured_player):
+    def undo_move(self, move, captured_piece, captured_player, eliminated_players):
         piece = self.board[move.to_loc.row][move.to_loc.col]
         self.board[move.from_loc.row][move.from_loc.col] = self.board[move.to_loc.row][move.to_loc.col]
         self.board[move.to_loc.row][move.to_loc.col] = captured_piece
         if captured_piece:
             self.player_points[piece.player] -= self.get_piece_value(captured_piece) #
+        # need to review this block
+        # if captured_player:
+        #     self.active_players.add(captured_player)
+        #     for row in range(14):
+        #         for col in range(14):
+        #             piece = self.board[row][col]
+        #             if piece and piece.player == captured_player:
+        #                 piece.is_dead = False
+
+        for player in eliminated_players:
+            self.active_players.add(player)
+            for row in range(14):
+                for col in range(14):
+                    piece = self.board[row][col]
+                    if piece and piece.player == player:
+                        piece.is_dead = False
+            self.player_points[self.current_player] -= 20  # Undo checkmate points
+            # for p in self.active_players:
+            #     if p != player:
+            #         self.player_points[p] -= 10  # Undo stalemate points
+
         self.current_player = Player((self.current_player.value - 1) % 4)
 
 
@@ -272,27 +360,133 @@ class Board:
             for col in range(14):
                 piece = self.board[row][col]
                 if piece:
-                    scores[piece.player] += self.get_piece_value(piece)
+                    if piece.piece_type == PieceType.ONE_POINT_QUEEN:
+                        scores[piece.player] += 12 # 12 instead of 9 encourages the engine to promote to a 1 point queen instead of a norm queen when given the choice # maybe this should be 1 - but then the engine wouldn't promote to 1 point queen
+                    else:
+                        scores[piece.player] += self.get_piece_value(piece)
         for player in Player:
             scores[player] += self.player_points[player]
             scores[player] -= 63
+        #print(f"Evaluation scores: {scores}")  # debug statement
+
         return scores
 
     def is_game_over(self):
-        return len(self.active_players) == 1
+        return len(self.active_players) == 1 or all(self.is_checkmate(player) or self.is_stalemate(player) for player in self.active_players)
+    
+    def is_in_check(self, player, move=None): # rename this?
+        captured_piece = None ######################################################### needed for line 352?
+        # C:\Users\dell2\source\repos\python-projects\4pc-ffa>python engine.py
+        # Traceback (most recent call last):
+        #   File "C:\Users\dell2\source\repos\python-projects\4pc-ffa\engine.py", line 410, in <module>
+        #     board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
+        #     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        #   File "C:\Users\dell2\source\repos\python-projects\4pc-ffa\engine.py", line 269, in make_move
+        #     if self.is_checkmate(player):
+        #       ^^^^^^^^^^^^^^^^^^^^^^^^^
+        #   File "C:\Users\dell2\source\repos\python-projects\4pc-ffa\engine.py", line 363, in is_checkmate
+        #     return self.is_in_check(player) and len(self.get_legal_moves(player)) == 0
+        #           ^^^^^^^^^^^^^^^^^^^^^^^^
+        #   File "C:\Users\dell2\source\repos\python-projects\4pc-ffa\engine.py", line 358, in is_in_check
+        #     self.board[move.to_loc.row][move.to_loc.col] = captured_piece
+        #                                                   ^^^^^^^^^^^^^^
+        # UnboundLocalError: cannot access local variable 'captured_piece' where it is not associated with a value
+
+        # C:\Users\dell2\source\repos\python-projects\4pc-ffa>
+
+        # Make the move temporarily if provided
+        if move:
+            captured_piece = self.board[move.to_loc.row][move.to_loc.col]
+            self.board[move.from_loc.row][move.from_loc.col] = None
+            self.board[move.to_loc.row][move.to_loc.col] = self.board[move.from_loc.row][move.from_loc.col]
+
+        king_loc = None
+        for row in range(14):
+            for col in range(14):
+                piece = self.board[row][col]
+                if piece and piece.player == player and piece.piece_type == PieceType.KING:
+                    king_loc = BoardLocation(row, col)
+                    break
+            if king_loc:
+                break
+
+        if king_loc:
+            for opponent in Player:
+                if opponent != player:
+                    for move in self.get_legal_moves(opponent):
+                        if move.to_loc.row == king_loc.row and move.to_loc.col == king_loc.col:
+                            # Undo the temporary move if provided
+                            if move:
+                                self.board[move.from_loc.row][move.from_loc.col] = self.board[move.to_loc.row][move.to_loc.col]
+                                self.board[move.to_loc.row][move.to_loc.col] = captured_piece
+                            return True
+
+        # Undo the temporary move if provided
+        if move:
+            self.board[move.from_loc.row][move.from_loc.col] = self.board[move.to_loc.row][move.to_loc.col]
+            self.board[move.to_loc.row][move.to_loc.col] = captured_piece
+
+        return False
+
+    def is_checkmate(self, player):
+        return self.is_in_check(player) and len(self.get_legal_moves(player)) == 0
+
+    def is_stalemate(self, player):
+        return not self.is_in_check(player) and len(self.get_legal_moves(player)) == 0
+
+    def eliminate_player(self, player):
+        for row in range(14):
+            for col in range(14):
+                piece = self.board[row][col]
+                if piece and piece.player == player:
+                    piece.is_dead = True
+        self.active_players.remove(player)
+
+# def negamax4(board, depth, alpha, beta, player):
+#     if depth == 0 or board.is_game_over():
+#         scores = board.evaluate()
+#         return scores
+
+#     max_scores = {p: float('-inf') for p in Player}
+#     for move in board.get_legal_moves(board.current_player):
+#         captured_piece = board.board[move.to_loc.row][move.to_loc.col]
+#         captured_player = board.make_move(move)
+#         scores = negamax4(board, depth - 1, -beta, -alpha, Player((player.value + 1) % 4))
+#         board.undo_move(move, captured_piece, captured_player)
+#         for p in Player:
+#             max_scores[p] = max(max_scores[p], -scores[p])
+#         alpha = max(alpha, max_scores[player])
+#         if alpha >= beta:
+#             break
+#     return max_scores
+
+# def get_best_move(board, depth):
+#     best_move = None
+#     max_score = float('-inf')
+#     best_scores = None
+#     for move in board.get_legal_moves(board.current_player):
+#         captured_piece = board.board[move.to_loc.row][move.to_loc.col]
+#         captured_player = board.make_move(move)
+#         scores = negamax4(board, depth - 1, float('-inf'), float('inf'), Player((board.current_player.value + 1) % 4))
+#         board.undo_move(move, captured_piece, captured_player)
+#         if scores[board.current_player] > max_score:
+#             max_score = scores[board.current_player]
+#             best_move = move
+#             best_scores = scores
+#     return best_move, best_scores
 
 def negamax4(board, depth, alpha, beta, player):
     if depth == 0 or board.is_game_over():
         scores = board.evaluate()
+        #print(f"Negamax4 scores at depth {depth}: {scores}")  # Debug print statement 
         return scores
 
-    max_scores = {p: float('-inf') for p in Player}
+    max_scores = {p: float('-inf') for p in board.active_players}
     for move in board.get_legal_moves(board.current_player):
-        captured_piece = board.board[move.to_loc.row][move.to_loc.col]
-        captured_player = board.make_move(move)
+        captured_piece, eliminated_players = board.make_move(move)
         scores = negamax4(board, depth - 1, -beta, -alpha, Player((player.value + 1) % 4))
-        board.undo_move(move, captured_piece, captured_player)
-        for p in Player:
+        board.undo_move(move, captured_piece, eliminated_players)
+        for p in board.active_players:
             max_scores[p] = max(max_scores[p], -scores[p])
         alpha = max(alpha, max_scores[player])
         if alpha >= beta:
@@ -303,15 +497,18 @@ def get_best_move(board, depth):
     best_move = None
     max_score = float('-inf')
     best_scores = None
+    #print(board.get_legal_moves(board.current_player)) # debug print statment --------------- empty array --------- this is why no best move is found
     for move in board.get_legal_moves(board.current_player):
-        captured_piece = board.board[move.to_loc.row][move.to_loc.col]
-        captured_player = board.make_move(move)
+        #print ("gbm1 trying all moves") # debug print statement
+        captured_piece, eliminated_players = board.make_move(move)
         scores = negamax4(board, depth - 1, float('-inf'), float('inf'), Player((board.current_player.value + 1) % 4))
-        board.undo_move(move, captured_piece, captured_player)
+        board.undo_move(move, captured_piece, eliminated_players)
+        print(f"Move: {move}, Scores: {scores}")  # Add this line to print the move and scores
         if scores[board.current_player] > max_score:
             max_score = scores[board.current_player]
             best_move = move
             best_scores = scores
+    print(f"Best move: {best_move}, Best scores: {best_scores}")  # Add this line to print the best move and scores
     return best_move, best_scores
 
 board = Board()
@@ -343,3 +540,4 @@ else:
 # Add check, checkmate, stalemate and resignation support
 # And support for dead pieces
 # Count number of nodes visited during search and use that to calculate nps
+# Handle one point queens such that they contribute a 9 points to the score but only give one point when captured
