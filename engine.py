@@ -191,7 +191,7 @@ class Board:
                 elif self.board[r][c].player != player:
                     moves.append(Move(BoardLocation(row, col), BoardLocation(r, c)))
                     break
-                else:
+                else: #blocked by friendly piece
                     break
                 r, c = r + dr, c + dc
         return moves
@@ -274,7 +274,7 @@ class Board:
                     scores[piece.player] += self.get_piece_value(piece)
         for player in Player:
             scores[player] += self.player_points[player]
-            # scores[player] -= 63
+            scores[player] -= 63
         return scores
 
     def is_game_over(self):
@@ -283,36 +283,47 @@ class Board:
 def negamax4(board, depth, alpha, beta, player):
     if depth == 0 or board.is_game_over():
         scores = board.evaluate()
-        return scores[player]
+        return scores
 
-    max_score = float('-inf')
+    max_scores = {p: float('-inf') for p in Player}
     for move in board.get_legal_moves(board.current_player):
         captured_piece = board.board[move.to_loc.row][move.to_loc.col]
         captured_player = board.make_move(move)
-        score = -negamax4(board, depth - 1, -beta, -alpha, Player((player.value + 1) % 4))
+        scores = negamax4(board, depth - 1, -beta, -alpha, Player((player.value + 1) % 4))
         board.undo_move(move, captured_piece, captured_player)
-        max_score = max(max_score, score)
-        alpha = max(alpha, score)
+        for p in Player:
+            max_scores[p] = max(max_scores[p], -scores[p])
+        alpha = max(alpha, max_scores[player])
         if alpha >= beta:
             break
-    return max_score
+    return max_scores
 
 def get_best_move(board, depth):
     best_move = None
     max_score = float('-inf')
+    best_scores = None
     for move in board.get_legal_moves(board.current_player):
         captured_piece = board.board[move.to_loc.row][move.to_loc.col]
         captured_player = board.make_move(move)
-        score = -negamax4(board, depth - 1, float('-inf'), float('inf'), Player((board.current_player.value + 1) % 4))
+        scores = negamax4(board, depth - 1, float('-inf'), float('inf'), Player((board.current_player.value + 1) % 4))
         board.undo_move(move, captured_piece, captured_player)
-        if score > max_score:
-            max_score = score
+        if scores[board.current_player] > max_score:
+            max_score = scores[board.current_player]
             best_move = move
-    return best_move
+            best_scores = scores
+    return best_move, best_scores
 
 board = Board()
-board.make_move(Move(BoardLocation(6, 0), BoardLocation(10, 4)))  # Blue queen(6, 0) to (11, 3)
-board.current_player = Player.RED
+# board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
+# board.current_player = Player.RED
+
+# Example of how to call get_best_move to get the best move
+best_move, scores = get_best_move(board, 6) 
+if best_move:
+    print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}) ")
+    print(f"Scores: {scores}")
+else:
+    print("No valid moves found or game is over.")
 
 # # while not board.is_game_over():
 # #print(f"Current player: {board.current_player}")
@@ -322,20 +333,3 @@ board.current_player = Player.RED
 # #print(f"Scores: {board.evaluate()}")
 
 # #print(f"Game over! Final scores: {board.evaluate()}")
-
-###################maxn#######################################
-# Example of how to call maxn to get the best move
-best_move, scores = maxn(board, 3) # Adjust depth as needed
-if best_move:
-    print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}) ")
-    print(f"Scores: {scores}")
-else:
-    print("No valid moves found or game is over.")
-
-# TODO:
-# Stop it from generating illegal moves (moving to the 3x3 square in the corner)
-# dell2@Anurag MINGW64 ~/source/repos/python-projects/4pc-ffa
-# $ python engine.py
-# Current player: Player.RED
-# Best move: (13, 10) to (13, 13) ---------------> THIS
-# Scores: {<Player.RED: 0>: 73, <Player.BLUE: 1>: 50, <Player.YELLOW: 2>: 59, <Player.GREEN: 3>: 70}
