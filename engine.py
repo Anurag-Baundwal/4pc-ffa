@@ -118,7 +118,7 @@ class Board:
                         legal_moves.extend(self.get_king_moves(row, col))
 
         # Filter out moves that would put the current player in check
-        #legal_moves = [move for move in legal_moves if not self.is_in_check(player, move)] ############ --------- problematic line
+        legal_moves = [move for move in legal_moves if not self.is_in_check(player, move)] ############ --------- problematic line
         
         return legal_moves
 
@@ -254,6 +254,7 @@ class Board:
             self.board[move.to_loc.row][move.to_loc.col].piece_type = move.promotion_piece_type
 
         # Check for checkmate and stalemate
+        # print("Checking for checkmate")
         for player in self.active_players:
             if self.is_checkmate(player):
                 self.player_points[self.current_player] += 20  # Checkmate points
@@ -383,21 +384,18 @@ class Board:
                     piece.is_dead = True
         self.active_players.remove(player)
 
-def negamax4(board, depth, alpha, beta, player):
+def negamax4(board, depth, player):
     if depth == 0 or board.is_game_over():
-        scores = board.evaluate() 
+        scores = board.evaluate()
         return scores
 
     max_scores = {p: float('-inf') for p in board.active_players}
     for move in board.get_legal_moves(board.current_player):
         captured_piece, eliminated_players = board.make_move(move)
-        scores = negamax4(board, depth - 1, -beta, -alpha, Player((player.value + 1) % 4))
+        scores = negamax4(board, depth - 1, Player((player.value + 1) % 4))
         board.undo_move(move, captured_piece, eliminated_players)
         for p in board.active_players:
-            max_scores[p] = max(max_scores[p], -scores[p])
-        alpha = max(alpha, max_scores[player])
-        if alpha >= beta:
-            break
+            max_scores[p] = max(max_scores[p], scores[p])
     return max_scores
 
 def get_best_move(board, depth):
@@ -407,7 +405,7 @@ def get_best_move(board, depth):
 
     for move in board.get_legal_moves(board.current_player):
         captured_piece, eliminated_players = board.make_move(move)
-        scores = negamax4(board, depth - 1, float('-inf'), float('inf'), Player((board.current_player.value + 1) % 4))
+        scores = negamax4(board, depth - 1, Player((board.current_player.value + 1) % 4))
         board.undo_move(move, captured_piece, eliminated_players)
         if scores[board.current_player] > max_score:
             max_score = scores[board.current_player]
@@ -416,17 +414,27 @@ def get_best_move(board, depth):
     return best_move, best_scores
 
 board = Board()
-board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
-board.current_player = Player.RED
+#board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
+board.make_move(Move(BoardLocation(13, 7), BoardLocation(12, 7)))
+board.make_move(Move(BoardLocation(10, 1), BoardLocation(10, 3)))
+board.make_move(Move(BoardLocation(9, 1), BoardLocation(9, 2)))
+board.make_move(Move(BoardLocation(1, 8), BoardLocation(2, 8)))
+board.make_move(Move(BoardLocation(8, 12), BoardLocation(8, 11)))
+board.make_move(Move(BoardLocation(13, 8), BoardLocation(11, 6)))
+board.current_player = Player.YELLOW
 # see if best move for red is to take the queen
 
 # Calling get_best_move and looking at the output
-best_move, scores = get_best_move(board, 5) 
+best_move, scores = get_best_move(board, 2) 
 if best_move:
     print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}) ")
     print(f"Scores: {scores}")
 else:
     print("No valid moves found or game is over.")
+
+print(board.active_players)
+board.make_move(Move(BoardLocation(0, 7), BoardLocation(5, 12)))
+print(board.active_players)
 
 # # while not board.is_game_over():
 # #print(f"Current player: {board.current_player}")
@@ -445,6 +453,7 @@ else:
 # x And support for dead pieces
 # Count number of nodes visited during search and use that to calculate nps
 # x Handle one point queens such that they contribute a 9 points to the score but only give one point when captured
+# Modify is_checkmate -> requires modifying is_in_check and get_legal_moves -> need to generate attacks of all 4 colors and see if the other colors are attacking the square our king is on -> create get_attackers function?
 
 # NOTE: 
 # Engine still needs a lot of testing
