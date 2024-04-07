@@ -1,4 +1,5 @@
 import random
+import cProfile
 from enum import Enum
 
 class PieceType(Enum):
@@ -98,28 +99,61 @@ class Board:
         if (row <= 2 and col <= 2) or (row <= 2 and col >= 11) or (row >= 11 and col <= 2) or (row >= 11 and col >= 11):
             return False
         return True
-    def get_legal_moves(self, player):
-        legal_moves = []
+    # def get_legal_moves(self, player):
+    #     legal_moves = []
+    #     for row in range(14):
+    #         for col in range(14):
+    #             piece = self.board[row][col]
+    #             if piece and piece.player == player:
+    #                 if piece.piece_type == PieceType.PAWN:
+    #                     legal_moves.extend(self.get_pawn_moves(row, col))
+    #                 elif piece.piece_type == PieceType.KNIGHT:
+    #                     legal_moves.extend(self.get_knight_moves(row, col))
+    #                 elif piece.piece_type == PieceType.BISHOP:
+    #                     legal_moves.extend(self.get_bishop_moves(row, col))
+    #                 elif piece.piece_type == PieceType.ROOK:
+    #                     legal_moves.extend(self.get_rook_moves(row, col))
+    #                 elif piece.piece_type == PieceType.QUEEN or piece.piece_type == PieceType.ONE_POINT_QUEEN:
+    #                     legal_moves.extend(self.get_queen_moves(row, col))
+    #                 elif piece.piece_type == PieceType.KING:
+    #                     legal_moves.extend(self.get_king_moves(row, col))
+
+    #     # Filter out moves that would put the current player in check
+    #     legal_moves = [move for move in legal_moves if not self.is_in_check(player, move)] ############ --------- problematic line
+        
+    #     return legal_moves
+    
+    def get_psuedo_legal_moves(self, player):
+        psuedo_legal_moves = []
         for row in range(14):
             for col in range(14):
                 piece = self.board[row][col]
                 if piece and piece.player == player:
                     if piece.piece_type == PieceType.PAWN:
-                        legal_moves.extend(self.get_pawn_moves(row, col))
+                        psuedo_legal_moves.extend(self.get_pawn_moves(row, col))
                     elif piece.piece_type == PieceType.KNIGHT:
-                        legal_moves.extend(self.get_knight_moves(row, col))
+                        psuedo_legal_moves.extend(self.get_knight_moves(row, col))
                     elif piece.piece_type == PieceType.BISHOP:
-                        legal_moves.extend(self.get_bishop_moves(row, col))
+                        psuedo_legal_moves.extend(self.get_bishop_moves(row, col))
                     elif piece.piece_type == PieceType.ROOK:
-                        legal_moves.extend(self.get_rook_moves(row, col))
+                        psuedo_legal_moves.extend(self.get_rook_moves(row, col))
                     elif piece.piece_type == PieceType.QUEEN or piece.piece_type == PieceType.ONE_POINT_QUEEN:
-                        legal_moves.extend(self.get_queen_moves(row, col))
+                        psuedo_legal_moves.extend(self.get_queen_moves(row, col))
                     elif piece.piece_type == PieceType.KING:
-                        legal_moves.extend(self.get_king_moves(row, col))
+                        psuedo_legal_moves.extend(self.get_king_moves(row, col))
 
-        # Filter out moves that would put the current player in check
-        legal_moves = [move for move in legal_moves if not self.is_in_check(player, move)] ############ --------- problematic line
+        return psuedo_legal_moves
+    
+    def get_legal_moves(self, player):
+        legal_moves = []
+
+        psuedo_legal_moves = self.get_psuedo_legal_moves(player)
         
+        for move in psuedo_legal_moves:
+            captured_piece = self.make_psuedo_legal_move(move)
+            if not self.is_in_check(player):
+                legal_moves.append(move)
+            self.undo_pseudo_legal_move(move, captured_piece)
         return legal_moves
 
     def get_pawn_moves(self, row, col):
@@ -149,26 +183,27 @@ class Board:
                     moves.append(Move(BoardLocation(row, col), BoardLocation(row, col - 2)))
 
         # Capture moves
-        if player == Player.RED:
-            if row > 0 and col > 0 and self.board[row - 1][col - 1] and self.board[row - 1][col - 1].player != player:
-                moves.append(Move(BoardLocation(row, col), BoardLocation(row - 1, col - 1)))
-            if row > 0 and col < 13 and self.board[row - 1][col + 1] and self.board[row - 1][col + 1].player != player:
-                moves.append(Move(BoardLocation(row, col), BoardLocation(row - 1, col + 1)))
-        elif player == Player.BLUE:
-            if row > 0 and col < 13 and self.board[row - 1][col + 1] and self.board[row - 1][col + 1].player != player:
-                moves.append(Move(BoardLocation(row, col), BoardLocation(row - 1, col + 1)))
-            if row < 13 and col < 13 and self.board[row + 1][col + 1] and self.board[row + 1][col + 1].player != player:
-                moves.append(Move(BoardLocation(row, col), BoardLocation(row + 1, col + 1)))
-        elif player == Player.YELLOW:
-            if row < 13 and col > 0 and self.board[row + 1][col - 1] and self.board[row + 1][col - 1].player != player:
-                moves.append(Move(BoardLocation(row, col), BoardLocation(row + 1, col - 1)))
-            if row < 13 and col < 13 and self.board[row + 1][col + 1] and self.board[row + 1][col + 1].player != player:
-                moves.append(Move(BoardLocation(row, col), BoardLocation(row + 1, col + 1)))
-        elif player == Player.GREEN:
-            if row > 0 and col > 0 and self.board[row - 1][col - 1] and self.board[row - 1][col - 1].player != player:
-                moves.append(Move(BoardLocation(row, col), BoardLocation(row - 1, col - 1)))
-            if row < 13 and col > 0 and self.board[row + 1][col - 1] and self.board[row + 1][col - 1].player != player:
-                moves.append(Move(BoardLocation(row, col), BoardLocation(row + 1, col - 1)))
+        match player:
+            case Player.RED:
+                if row > 0 and col > 0 and self.board[row - 1][col - 1] and self.board[row - 1][col - 1].player != player:
+                    moves.append(Move(BoardLocation(row, col), BoardLocation(row - 1, col - 1)))
+                if row > 0 and col < 13 and self.board[row - 1][col + 1] and self.board[row - 1][col + 1].player != player:
+                    moves.append(Move(BoardLocation(row, col), BoardLocation(row - 1, col + 1)))
+            case Player.BLUE:
+                if row > 0 and col < 13 and self.board[row - 1][col + 1] and self.board[row - 1][col + 1].player != player:
+                    moves.append(Move(BoardLocation(row, col), BoardLocation(row - 1, col + 1)))
+                if row < 13 and col < 13 and self.board[row + 1][col + 1] and self.board[row + 1][col + 1].player != player:
+                    moves.append(Move(BoardLocation(row, col), BoardLocation(row + 1, col + 1)))
+            case Player.YELLOW:
+                if row < 13 and col > 0 and self.board[row + 1][col - 1] and self.board[row + 1][col - 1].player != player:
+                    moves.append(Move(BoardLocation(row, col), BoardLocation(row + 1, col - 1)))
+                if row < 13 and col < 13 and self.board[row + 1][col + 1] and self.board[row + 1][col + 1].player != player:
+                    moves.append(Move(BoardLocation(row, col), BoardLocation(row + 1, col + 1)))
+            case Player.GREEN:
+                if row > 0 and col > 0 and self.board[row - 1][col - 1] and self.board[row - 1][col - 1].player != player:
+                    moves.append(Move(BoardLocation(row, col), BoardLocation(row - 1, col - 1)))
+                if row < 13 and col > 0 and self.board[row + 1][col - 1] and self.board[row + 1][col - 1].player != player:
+                    moves.append(Move(BoardLocation(row, col), BoardLocation(row + 1, col - 1)))
 
         # Promotion moves
         promotion_row = 5 if player == Player.RED else 8 if player == Player.BLUE else 8 if player == Player.YELLOW else 5
@@ -248,7 +283,7 @@ class Board:
 
         if captured_piece and not captured_piece.is_dead:
             captured_player = captured_piece.player
-            self.player_points[piece.player] += self.get_piece_value(captured_piece)
+            self.player_points[piece.player] += self.get_piece_capture_value(captured_piece)
         self.board[move.to_loc.row][move.to_loc.col] = piece
         if move.promotion_piece_type:
             self.board[move.to_loc.row][move.to_loc.col].piece_type = move.promotion_piece_type
@@ -285,13 +320,29 @@ class Board:
 
         self.current_player = Player((self.current_player.value + 1) % 4)
         return captured_piece, eliminated_players
+    
+    def make_psuedo_legal_move(self, move):
+        piece = self.board[move.from_loc.row][move.from_loc.col]
+        self.board[move.from_loc.row][move.from_loc.col] = None
+        captured_piece = self.board[move.to_loc.row][move.to_loc.col]
+        
+        self.board[move.to_loc.row][move.to_loc.col] = piece
+        if move.promotion_piece_type:
+            self.board[move.to_loc.row][move.to_loc.col].piece_type = move.promotion_piece_type
 
+        return captured_piece
+
+    def undo_pseudo_legal_move(self, move, captured_piece):
+        piece = self.board[move.to_loc.row][move.to_loc.col]
+        self.board[move.from_loc.row][move.from_loc.col] = piece
+        self.board[move.to_loc.row][move.to_loc.col] = captured_piece
+    
     def undo_move(self, move, captured_piece, eliminated_players):
         piece = self.board[move.to_loc.row][move.to_loc.col]
         self.board[move.from_loc.row][move.from_loc.col] = self.board[move.to_loc.row][move.to_loc.col]
         self.board[move.to_loc.row][move.to_loc.col] = captured_piece
         if captured_piece:
-            self.player_points[piece.player] -= self.get_piece_value(captured_piece) #
+            self.player_points[piece.player] -= self.get_piece_capture_value(captured_piece) #
 
         for player in eliminated_players:
             self.active_players.add(player)
@@ -306,18 +357,36 @@ class Board:
 
 
     def get_piece_value(self, piece):
-      if piece.piece_type == PieceType.PAWN:
-          return 1
-      elif piece.piece_type == PieceType.KNIGHT:
-          return 3
-      elif piece.piece_type == PieceType.BISHOP:
-          return 5
-      elif piece.piece_type == PieceType.ROOK:
-          return 5
-      elif piece.piece_type == PieceType.QUEEN:
-          return 9
-      elif piece.piece_type == PieceType.KING:
-          return 20
+        if piece.piece_type == PieceType.PAWN:
+            return 1
+        elif piece.piece_type == PieceType.KNIGHT:
+            return 3
+        elif piece.piece_type == PieceType.BISHOP:
+            return 5
+        elif piece.piece_type == PieceType.ROOK:
+            return 5
+        elif piece.piece_type == PieceType.QUEEN:
+            return 9
+        elif piece.piece_type == PieceType.ONE_POINT_QUEEN:
+            return 11
+        elif piece.piece_type == PieceType.KING:
+            return 20
+          
+    def get_piece_capture_value(self, piece):
+        if piece.piece_type == PieceType.PAWN:
+            return 1
+        elif piece.piece_type == PieceType.KNIGHT:
+            return 3
+        elif piece.piece_type == PieceType.BISHOP:
+            return 5
+        elif piece.piece_type == PieceType.ROOK:
+            return 5
+        elif piece.piece_type == PieceType.QUEEN:
+            return 9
+        elif piece.piece_type == PieceType.ONE_POINT_QUEEN:
+              return 1
+        elif piece.piece_type == PieceType.KING:
+            return 20
 
     def evaluate(self):
         scores = {player: 0 for player in Player}
@@ -325,10 +394,7 @@ class Board:
             for col in range(14):
                 piece = self.board[row][col]
                 if piece:
-                    if piece.piece_type == PieceType.ONE_POINT_QUEEN:
-                        scores[piece.player] += 12 # 12 instead of 9 encourages the engine to promote to a 1 point queen instead of a norm queen when given the choice # maybe this should be 1 - but then the engine wouldn't promote to 1 point queen
-                    else:
-                        scores[piece.player] += self.get_piece_value(piece)
+                    scores[piece.player] += self.get_piece_value(piece)
         for player in Player:
             scores[player] += self.player_points[player]
             scores[player] -= 63
@@ -338,13 +404,39 @@ class Board:
     def is_game_over(self):
         return len(self.active_players) == 1 or all(self.is_checkmate(player) or self.is_stalemate(player) for player in self.active_players)
     
-    def is_in_check(self, player, move=None): # rename this?
-        captured_piece = None
+    # def is_in_check(self, player, move=None): # rename this?
+    #     captured_piece = None
 
-        # Make the move temporarily if provided
-        if move:
-            captured_piece, eliminated_players = self.make_move(move)
+    #     # Make the move temporarily if provided 
+    #     if move:
+    #         captured_piece, eliminated_players = self.make_move(move) # PROBLEM HERE
 
+    #     king_loc = None
+    #     for row in range(14):
+    #         for col in range(14):
+    #             piece = self.board[row][col]
+    #             if piece and piece.player == player and piece.piece_type == PieceType.KING:
+    #                 king_loc = BoardLocation(row, col)
+    #                 break
+    #         if king_loc:
+    #             break
+
+    #     if king_loc:
+    #         for opponent in Player:
+    #             if opponent != player:
+    #                 for opponent_move in self.get_psuedo_legal_moves(opponent):
+    #                     if opponent_move.to_loc.row == king_loc.row and opponent_move.to_loc.col == king_loc.col:
+    #                         # Undo the temporary move if provided
+    #                         if move:
+    #                             self.undo_move(move, captured_piece, eliminated_players)
+    #                         return True
+
+    #     # Undo the temporary move if provided
+    #     if move:
+    #         self.undo_move(move, captured_piece, eliminated_players)
+    #     return False
+
+    def is_in_check(self, player):
         king_loc = None
         for row in range(14):
             for col in range(14):
@@ -358,17 +450,10 @@ class Board:
         if king_loc:
             for opponent in Player:
                 if opponent != player:
-                    for opponent_move in self.get_legal_moves(opponent):
+                    for opponent_move in self.get_psuedo_legal_moves(opponent):
                         if opponent_move.to_loc.row == king_loc.row and opponent_move.to_loc.col == king_loc.col:
-                            # Undo the temporary move if provided
-                            if move:
-                                self.undo_move(move, captured_piece, eliminated_players)
-                            return True
-
-        # Undo the temporary move if provided
-        if move:
-            self.undo_move(move, captured_piece, eliminated_players)
-        return False
+                              return True
+            return False
 
     def is_checkmate(self, player):
         return self.is_in_check(player) and len(self.get_legal_moves(player)) == 0
@@ -413,37 +498,43 @@ def get_best_move(board, depth):
             best_scores = scores
     return best_move, best_scores
 
-board = Board()
-#board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
-board.make_move(Move(BoardLocation(13, 7), BoardLocation(12, 7)))
-board.make_move(Move(BoardLocation(10, 1), BoardLocation(10, 3)))
-board.make_move(Move(BoardLocation(9, 1), BoardLocation(9, 2)))
-board.make_move(Move(BoardLocation(1, 8), BoardLocation(2, 8)))
-board.make_move(Move(BoardLocation(8, 12), BoardLocation(8, 11)))
-board.make_move(Move(BoardLocation(13, 8), BoardLocation(11, 6)))
-board.current_player = Player.YELLOW
-# see if best move for red is to take the queen
 
-# Calling get_best_move and looking at the output
-best_move, scores = get_best_move(board, 2) 
-if best_move:
-    print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}) ")
-    print(f"Scores: {scores}")
-else:
-    print("No valid moves found or game is over.")
+if __name__ == '__main__':
+    board = Board()
+    #board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
+    # See if it can spot mate in 1 -----------------------------------------------------------------------------------------------------
+    board.make_move(Move(BoardLocation(13, 7), BoardLocation(12, 7)))
+    board.make_move(Move(BoardLocation(10, 1), BoardLocation(10, 3)))
+    board.make_move(Move(BoardLocation(9, 1), BoardLocation(9, 2)))
+    board.make_move(Move(BoardLocation(1, 8), BoardLocation(2, 8)))
+    board.make_move(Move(BoardLocation(8, 12), BoardLocation(8, 11)))
+    board.make_move(Move(BoardLocation(13, 8), BoardLocation(11, 6)))
+    board.current_player = Player.YELLOW
+    # see if best move for red is to take the queen
 
-print(board.active_players)
-board.make_move(Move(BoardLocation(0, 7), BoardLocation(5, 12)))
-print(board.active_players)
+    #cProfile.run('get_best_move(board, 1)', 'profile_results')
+    
+    # Calling get_best_move and looking at the output
+    best_move, scores = get_best_move(board, 2) 
+    if best_move:
+        print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}) ")
+        print(f"Scores: {scores}")
+    else:
+        print("No valid moves found or game is over.")
 
-# # while not board.is_game_over():
-# #print(f"Current player: {board.current_player}")
-# best_move = get_best_move(board, 4)
-# # board.make_move(best_move)
-# #print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}) ")
-# #print(f"Scores: {board.evaluate()}")
+    print(board.active_players)
+    # board.make_move(Move(BoardLocation(0, 7), BoardLocation(5, 12)))
+    # print(board.active_players)
+    ##  -----------------------------------------------------------------------------------------------------------------------
 
-# #print(f"Game over! Final scores: {board.evaluate()}")
+    # # while not board.is_game_over():
+    # #print(f"Current player: {board.current_player}")
+    # best_move = get_best_move(board, 4)
+    # # board.make_move(best_move)
+    # #print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}) ")
+    # #print(f"Scores: {board.evaluate()}")
+
+    # #print(f"Game over! Final scores: {board.evaluate()}")
 
 
 # TODO:
@@ -454,6 +545,6 @@ print(board.active_players)
 # Count number of nodes visited during search and use that to calculate nps
 # x Handle one point queens such that they contribute a 9 points to the score but only give one point when captured
 # Modify is_checkmate -> requires modifying is_in_check and get_legal_moves -> need to generate attacks of all 4 colors and see if the other colors are attacking the square our king is on -> create get_attackers function?
-
+# handle promotions in undo_move?
 # NOTE: 
 # Engine still needs a lot of testing
