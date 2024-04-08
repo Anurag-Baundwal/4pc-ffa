@@ -3,6 +3,8 @@ import cProfile
 from enum import Enum
 import time
 
+nodes = 0
+
 class PieceType(Enum):
     PAWN = 1
     KNIGHT = 2
@@ -495,6 +497,8 @@ class Board:
         self.active_players.remove(player)
 
 def negamax4(board, depth):
+    global nodes
+    nodes += 1
     if depth == 0 or board.is_game_over():
         #print("Running board.evaluate()")
         return board.evaluate()
@@ -518,12 +522,12 @@ def get_best_move(board, depth):
     max_score = float('-inf')
     best_scores = None
 
+    global nodes
+    nodes = 0
     player1 = board.current_player
     for move in board.get_legal_moves(board.current_player):
         captured_piece, eliminated_players = board.make_move(move)
         scores = negamax4(board, depth - 1)
-        
-
         # print("In get_best_move:")
         # print("Current player: "+ str(board.current_player))
         # print("Active players: " + str(board.active_players))
@@ -562,7 +566,11 @@ if __name__ == '__main__':
     best_move, scores = get_best_move(board, 2)
     end_time = time.time()
     execution_time = end_time - start_time
+    print(f"Number of nodes visited: {nodes + 1}")
     print(f"Execution time: {execution_time} seconds") 
+
+    nps = (nodes + 1) / execution_time
+    print(f"Nodes per second (NPS): {nps}")
     if best_move:
         print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}) ")
         print(f"Scores: {scores}")
@@ -602,5 +610,6 @@ if __name__ == '__main__':
 # x Handle one point queens such that they contribute a 9 points to the score but only give one point when captured
 # Modify is_checkmate -> requires modifying is_in_check and get_legal_moves -> need to generate attacks of all 4 colors and see if the other colors are attacking the square our king is on -> create get_attackers function?
 # handle promotions in undo_move?
+# x Add nps measurement
 # NOTE: 
 # Engine still needs a lot of testing
