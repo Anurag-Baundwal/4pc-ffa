@@ -276,6 +276,7 @@ class Board:
         return moves
 
     def make_move(self, move):
+        #print(move)
         eliminated_players = []
 
         piece = self.board[move.from_loc.row][move.from_loc.col]
@@ -291,10 +292,12 @@ class Board:
             self.board[move.to_loc.row][move.to_loc.col].piece_type = move.promotion_piece_type
 
         # Check for checkmate and stalemate
-        # print("Checking for checkmate")
+        #print("Checking if anyone is checkmated or stalemated")
+        #print(self.active_players)
         for player in self.active_players:
+            #print(player)
             if self.is_checkmate(player):
-                self.player_points[self.current_player] += 20  # Checkmate points
+                self.player_points[piece.player] += 20  # Checkmate points
                 self.eliminate_player(player)
                 eliminated_players.append(player)
 
@@ -472,6 +475,9 @@ class Board:
             return False
 
     def is_checkmate(self, player):
+        # print("Inside is_checkmate method")
+        # print(self.is_in_check(player))
+        # print(len(self.get_legal_moves(player)))
         return self.is_in_check(player) and len(self.get_legal_moves(player)) == 0
 
     def is_stalemate(self, player):
@@ -488,7 +494,7 @@ class Board:
 def negamax4(board, depth, player, alpha, beta):
     if depth == 0 or board.is_game_over():
         scores = board.evaluate()
-        print(scores)
+        # print(scores)
         return scores
 
     max_scores = {p: float('-inf') for p in board.active_players}
@@ -520,10 +526,10 @@ def get_best_move(board, depth):
         scores = negamax4(board, depth - 1, board.get_next_player(), alpha, beta)
         
 
-        print("In get_best_move:")
-        print("Current player: "+ str(board.current_player))
-        print("Active players: " + str(board.active_players))
-        print(scores)
+        # print("In get_best_move:")
+        # print("Current player: "+ str(board.current_player))
+        # print("Active players: " + str(board.active_players))
+        # print(scores)
         if scores[board.current_player] > max_score:
             max_score = scores[board.current_player]
             best_move = move
@@ -537,12 +543,11 @@ if __name__ == '__main__':
     board = Board()
     #board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
     # See if it can spot mate in 1 -----------------------------------------------------------------------------------------------------
-    board.make_move(Move(BoardLocation(13, 7), BoardLocation(12, 7)))
-    board.make_move(Move(BoardLocation(10, 1), BoardLocation(10, 3)))
-    board.make_move(Move(BoardLocation(9, 1), BoardLocation(9, 2)))
-    board.make_move(Move(BoardLocation(1, 8), BoardLocation(2, 8)))
-    board.make_move(Move(BoardLocation(8, 12), BoardLocation(8, 11)))
-    board.make_move(Move(BoardLocation(13, 8), BoardLocation(11, 6)))
+    board.make_move(Move(BoardLocation(12, 7), BoardLocation(11, 7))) # red pawn move ############ fix (13,7) and 12,7 to 12, 7 and 11,7
+    board.make_move(Move(BoardLocation(10, 1), BoardLocation(10, 3))) # blue pawn move
+    board.make_move(Move(BoardLocation(9, 1), BoardLocation(9, 2))) # blue pawn move
+    board.make_move(Move(BoardLocation(1, 8), BoardLocation(2, 8))) # yellow pawn move
+    board.make_move(Move(BoardLocation(13, 8), BoardLocation(11, 6))) # red bishop move
     board.current_player = Player.YELLOW
     # see if best move for red is to take the queen
 
@@ -556,7 +561,15 @@ if __name__ == '__main__':
     else:
         print("No valid moves found or game is over.")
 
-    print(board.active_players)
+    ########## TEST IF CHECKMATE IS BEING DETECTED ########
+    board.make_move(Move(BoardLocation(0, 7), BoardLocation(5, 12)))
+    print(board.active_players) # confirm that this move is checkmate
+    # scores = board.evaluate()
+    # print(scores)
+    # print(board.player_points)
+    ########################################################
+
+    # print(board.active_players)
     # board.make_move(Move(BoardLocation(0, 7), BoardLocation(5, 12)))
     # print(board.active_players)
     ##  -----------------------------------------------------------------------------------------------------------------------
