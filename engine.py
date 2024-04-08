@@ -1,6 +1,7 @@
 import random
 import cProfile
 from enum import Enum
+import time
 
 class PieceType(Enum):
     PAWN = 1
@@ -297,12 +298,14 @@ class Board:
         for player in self.active_players:
             #print(player)
             if self.is_checkmate(player):
+                # print(str(player) + " checkmated")
                 self.player_points[piece.player] += 20  # Checkmate points
                 self.eliminate_player(player)
                 eliminated_players.append(player)
 
                 break # added break to fix bug 
             elif self.is_stalemate(player):
+                print(str(player) + " stalemated")
                 if player == self.current_player:
                     self.player_points[player] += 20  # Stalemate points for current player
                 else:
@@ -491,51 +494,50 @@ class Board:
                     piece.is_dead = True
         self.active_players.remove(player)
 
-def negamax4(board, depth, player, alpha, beta):
+def negamax4(board, depth):
     if depth == 0 or board.is_game_over():
-        scores = board.evaluate()
-        # print(scores)
-        return scores
+        #print("Running board.evaluate()")
+        return board.evaluate()
 
     max_scores = {p: float('-inf') for p in board.active_players}
+    player = board.current_player
 
-    for move in board.get_legal_moves(board.current_player):
+    for move in board.get_legal_moves(player):
         captured_piece, eliminated_players = board.make_move(move)
-        scores = negamax4(board, depth - 1, board.get_next_player(), alpha, beta)
         
-
+        scores = negamax4(board, depth - 1)
         for p in board.active_players:
             max_scores[p] = max(max_scores[p], scores[p])
-
-        if max_scores[board.current_player] >= beta:
-            break
-
-        alpha = max(alpha, max_scores[board.current_player])
+        
         board.undo_move(move, captured_piece, eliminated_players)
+
     return max_scores
 
 def get_best_move(board, depth):
     best_move = None
     max_score = float('-inf')
     best_scores = None
-    alpha = float('-inf')
-    beta = float('inf')
 
+    player1 = board.current_player
     for move in board.get_legal_moves(board.current_player):
         captured_piece, eliminated_players = board.make_move(move)
-        scores = negamax4(board, depth - 1, board.get_next_player(), alpha, beta)
+        scores = negamax4(board, depth - 1)
         
 
         # print("In get_best_move:")
         # print("Current player: "+ str(board.current_player))
         # print("Active players: " + str(board.active_players))
         # print(scores)
-        if scores[board.current_player] > max_score:
-            max_score = scores[board.current_player]
+        
+        # if scores[board.current_player] > max_score:
+        #     max_score = scores[board.current_player]
+        #     best_move = move
+        #     best_scores = scores
+        if scores[player1] > max_score:
+            max_score = scores[player1]
             best_move = move
             best_scores = scores
 
-        alpha = max(alpha, max_score)
         board.undo_move(move, captured_piece, eliminated_players)
     return best_move, best_scores
 
@@ -550,11 +552,17 @@ if __name__ == '__main__':
     board.make_move(Move(BoardLocation(13, 8), BoardLocation(11, 6))) # red bishop move
     board.current_player = Player.YELLOW
     # see if best move for red is to take the queen
-
+    legal_moves = board.get_legal_moves(board.current_player)
+    # for move in legal_moves:
+    #     print(f"move generated: ({move.from_loc.row}, {move.from_loc.col}) to ({move.to_loc.row}, {move.to_loc.col}) ")
     #cProfile.run('get_best_move(board, 1)', 'profile_results')
     
     # Calling get_best_move and looking at the output
-    best_move, scores = get_best_move(board, 2) 
+    start_time = time.time()
+    best_move, scores = get_best_move(board, 2)
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print(f"Execution time: {execution_time} seconds") 
     if best_move:
         print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}) ")
         print(f"Scores: {scores}")
@@ -562,11 +570,12 @@ if __name__ == '__main__':
         print("No valid moves found or game is over.")
 
     ########## TEST IF CHECKMATE IS BEING DETECTED ########
-    board.make_move(Move(BoardLocation(0, 7), BoardLocation(5, 12)))
-    print(board.active_players) # confirm that this move is checkmate
+    # board.make_move(Move(BoardLocation(0, 7), BoardLocation(5, 12)))
+    # print(board.active_players) # confirm that this move is checkmate
     # scores = board.evaluate()
     # print(scores)
     # print(board.player_points)
+    # print(board.current_player)
     ########################################################
 
     # print(board.active_players)
