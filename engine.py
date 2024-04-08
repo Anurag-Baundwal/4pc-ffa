@@ -145,6 +145,8 @@ class Board:
         return psuedo_legal_moves
     
     def get_legal_moves(self, player):
+        if player not in self.active_players:
+            return None
         legal_moves = []
 
         psuedo_legal_moves = self.get_psuedo_legal_moves(player)
@@ -317,8 +319,12 @@ class Board:
                 break
             
                 # will have to add double and triple checkmate support later
-
+        # print("Current player: " + str(self.current_player))
         self.current_player = Player((self.current_player.value + 1) % 4)
+        while (self.current_player not in self.active_players):
+            self.current_player = Player((self.current_player.value + 1) % 4)
+        # print("Current player after making move: " + str(self.current_player))
+        # self.current_player = self.get_next_player()
         return captured_piece, eliminated_players
     
     def make_psuedo_legal_move(self, move):
@@ -338,6 +344,7 @@ class Board:
         self.board[move.to_loc.row][move.to_loc.col] = captured_piece
     
     def undo_move(self, move, captured_piece, eliminated_players):
+        # print("Current player: " + str(self.current_player))
         piece = self.board[move.to_loc.row][move.to_loc.col]
         self.board[move.from_loc.row][move.from_loc.col] = self.board[move.to_loc.row][move.to_loc.col]
         self.board[move.to_loc.row][move.to_loc.col] = captured_piece
@@ -348,13 +355,16 @@ class Board:
             self.active_players.add(player)
             for row in range(14):
                 for col in range(14):
-                    piece = self.board[row][col]
-                    if piece and piece.player == player:
-                        piece.is_dead = False
-            self.player_points[self.current_player] -= 20  # Undo checkmate points
-            
+                    piece1 = self.board[row][col]
+                    if piece1 and piece1.player == player:
+                        piece1.is_dead = False
+            self.player_points[piece.player] -= 20  # Undo checkmate points
+        
         self.current_player = Player((self.current_player.value - 1) % 4)
-
+        while (self.current_player not in self.active_players):
+            self.current_player = Player((self.current_player.value + 1) % 4)
+        # print("Active players: " + str(board.active_players))
+        # print("Current player after undoing move: " + str(self.current_player))
 
     def get_piece_value(self, piece):
         if piece.piece_type == PieceType.PAWN:
@@ -389,17 +399,23 @@ class Board:
             return 20
 
     def evaluate(self):
-        scores = {player: 0 for player in Player}
+        scores = {player: 0 for player in board.active_players}
         for row in range(14):
             for col in range(14):
                 piece = self.board[row][col]
                 if piece:
-                    scores[piece.player] += self.get_piece_value(piece)
-        for player in Player:
+                    if not piece.is_dead and piece.player in board.active_players:
+                      scores[piece.player] += self.get_piece_value(piece)
+        for player in board.active_players:
             scores[player] += self.player_points[player]
             scores[player] -= 63
         
         return scores
+    
+    def get_next_player(self):
+        next_player = Player((self.current_player.value + 1) % 4)
+        while (next_player not in self.active_players):
+            next_player = Player((next_player.value + 1) % 4)
 
     def is_game_over(self):
         return len(self.active_players) == 1 or all(self.is_checkmate(player) or self.is_stalemate(player) for player in self.active_players)
@@ -469,35 +485,53 @@ class Board:
                     piece.is_dead = True
         self.active_players.remove(player)
 
-def negamax4(board, depth, player):
+def negamax4(board, depth, player, alpha, beta):
     if depth == 0 or board.is_game_over():
         scores = board.evaluate()
+        print(scores)
         return scores
 
     max_scores = {p: float('-inf') for p in board.active_players}
+
     for move in board.get_legal_moves(board.current_player):
         captured_piece, eliminated_players = board.make_move(move)
-        scores = negamax4(board, depth - 1, Player((player.value + 1) % 4))
-        board.undo_move(move, captured_piece, eliminated_players)
+        scores = negamax4(board, depth - 1, board.get_next_player(), alpha, beta)
+        
+
         for p in board.active_players:
             max_scores[p] = max(max_scores[p], scores[p])
+
+        if max_scores[board.current_player] >= beta:
+            break
+
+        alpha = max(alpha, max_scores[board.current_player])
+        board.undo_move(move, captured_piece, eliminated_players)
     return max_scores
 
 def get_best_move(board, depth):
     best_move = None
     max_score = float('-inf')
     best_scores = None
+    alpha = float('-inf')
+    beta = float('inf')
 
     for move in board.get_legal_moves(board.current_player):
         captured_piece, eliminated_players = board.make_move(move)
-        scores = negamax4(board, depth - 1, Player((board.current_player.value + 1) % 4))
-        board.undo_move(move, captured_piece, eliminated_players)
+        scores = negamax4(board, depth - 1, board.get_next_player(), alpha, beta)
+        
+
+        print("In get_best_move:")
+        print("Current player: "+ str(board.current_player))
+        print("Active players: " + str(board.active_players))
+        print(scores)
         if scores[board.current_player] > max_score:
             max_score = scores[board.current_player]
             best_move = move
             best_scores = scores
-    return best_move, best_scores
 
+        alpha = max(alpha, max_score)
+        board.undo_move(move, captured_piece, eliminated_players)
+    return best_move, best_scores
 
 if __name__ == '__main__':
     board = Board()
