@@ -1,3 +1,4 @@
+import copy
 from pieces import Piece, PieceType, Player
 
 class BoardLocation:
@@ -57,6 +58,10 @@ class Board:
         if not (0 <= row < 8 and 0 <= col < 8):
             return False
         return True
+    
+    def copy(self):
+        # Create a deep copy of this board
+        return copy.deepcopy(self)
 
     def get_psuedo_legal_moves(self, player): # TODO: check if the player is dead?
         psuedo_legal_moves = []
@@ -351,7 +356,7 @@ class Board:
                       if piece.piece_type == PieceType.PAWN:
                           if piece.player == Player.RED:
                               scores[piece.player] += 0.2*(6-row)
-                              if self.board[row-1][col] != None and self.board[row-1][col].player != piece.player:
+                              if self.is_valid_square((row-1), col) and self.board[row-1][col] != None and self.board[row-1][col].player != piece.player:
                                   scores[piece.player] -= 0.2 # blocked pawn
                               for dr in [-1]:
                                   for dc in [-1, 1]:
@@ -369,7 +374,7 @@ class Board:
                                                       scores[target.player] -= 0.5 # king in danger - avoid getting attacked by enemy pawns
                           elif piece.player == Player.BLUE:
                               scores[piece.player] += 0.2*(col-1)
-                              if self.board[row][col+1] != None and self.board[row][col+1].player != piece.player:
+                              if self.is_valid_square(row+1, (col+1)) and self.board[row][col+1] != None and self.board[row][col+1].player != piece.player:
                                   scores[piece.player] -= 0.2
                               for dr in [-1, 1]:
                                   for dc in [1]:
@@ -387,7 +392,7 @@ class Board:
                                                       scores[target.player] -= 0.5 # king in danger - avoid getting attacked by enemy pawns
                           elif piece.player == Player.YELLOW:
                               scores[piece.player] += 0.2*(row-1)
-                              if self.board[row+1][col] != None and self.board[row+1][col].player != piece.player:
+                              if self.is_valid_square((row+1), col) and self.board[row+1][col] != None and self.board[row+1][col].player != piece.player:
                                   scores[piece.player] -= 0.2
                               for dr in [-1, 1]:
                                   for dc in [-1]:
@@ -405,7 +410,7 @@ class Board:
                                                       scores[target.player] -= 0.5 # king in danger - avoid getting attacked by enemy pawns
                           elif piece.player == Player.GREEN:
                               scores[piece.player] += 0.2*(6-col)
-                              if self.board[row][col-1] != None and self.board[row][col-1].player != piece.player:
+                              if self.is_valid_square(row, (col-1)) and self.board[row][col-1] != None and self.board[row][col-1].player != piece.player:
                                   scores[piece.player] -= 0.2
                               for dr in [-1]:
                                   for dc in [-1, 1]:
