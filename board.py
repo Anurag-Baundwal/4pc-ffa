@@ -81,8 +81,8 @@ class Board:
                         case PieceType.ROOK:
                             psuedo_legal_moves.extend(self.get_rook_moves(row, col))
                         case PieceType.KING:
-                            # psuedo_legal_moves.extend(self.get_king_moves(row, col))
-                            psuedo_legal_moves = self.get_king_moves(row, col) + psuedo_legal_moves
+                            psuedo_legal_moves.extend(self.get_king_moves(row, col))
+                            # psuedo_legal_moves = self.get_king_moves(row, col) + psuedo_legal_moves
 
 
         return psuedo_legal_moves
@@ -293,6 +293,7 @@ class Board:
                 return 3
             case PieceType.DEAD_KING:
                 return 3
+    
     # eval ideas
     # for king -> +10 cp for every friendly piece adjancent to king and -10 for every enemy piece
     # for pawns -> bonus for moving forward towards promotion | blocked pawn penalty
@@ -345,14 +346,7 @@ class Board:
                           king_coords[piece.player] = [row, col]
                           
                           king_present[piece.player] = True
-                          # if piece.player == Player.RED:
-                          #     red_king_present = True
-                          # elif piece.player == Player.BLUE:
-                          #     blue_king_present = True
-                          # elif piece.player == Player.YELLOW:
-                          #     yellow_king_present = True
-                          # elif piece.player == Player.GREEN:
-                          #     green_king_present = True
+                          
                       if piece.piece_type == PieceType.PAWN:
                           if piece.player == Player.RED:
                               scores[piece.player] += 0.2*(6-row)
@@ -362,8 +356,8 @@ class Board:
                                   for dc in [-1, 1]:
                                       r, c = row + dr, col + dc
                                       if self.is_valid_square(r, c):
-                                          if self.board[row-1][col] != None:
-                                              target = self.board[row-1][col]
+                                          if self.board[r][c] != None:
+                                              target = self.board[r][c]
                                               if target.player == piece.player:
                                                   if target.piece_type == PieceType.BISHOP or target.piece_type == PieceType.KNIGHT:
                                                       scores[piece.player] += 0.2 # piece on outpost
@@ -374,14 +368,14 @@ class Board:
                                                       scores[target.player] -= 0.5 # king in danger - avoid getting attacked by enemy pawns
                           elif piece.player == Player.BLUE:
                               scores[piece.player] += 0.2*(col-1)
-                              if self.is_valid_square(row+1, (col+1)) and self.board[row][col+1] != None and self.board[row][col+1].player != piece.player:
+                              if self.is_valid_square(row, (col+1)) and self.board[row][col+1] != None and self.board[row][col+1].player != piece.player:
                                   scores[piece.player] -= 0.2
                               for dr in [-1, 1]:
                                   for dc in [1]:
                                       r, c = row + dr, col + dc
                                       if self.is_valid_square(r, c):
-                                          if self.board[row-1][col] != None:
-                                              target = self.board[row-1][col]
+                                          if self.board[r][c] != None:
+                                              target = self.board[r][c]
                                               if target.player == piece.player:
                                                   if target.piece_type == PieceType.BISHOP or target.piece_type == PieceType.KNIGHT:
                                                       scores[piece.player] += 0.2 # piece on outpost
@@ -394,12 +388,12 @@ class Board:
                               scores[piece.player] += 0.2*(row-1)
                               if self.is_valid_square((row+1), col) and self.board[row+1][col] != None and self.board[row+1][col].player != piece.player:
                                   scores[piece.player] -= 0.2
-                              for dr in [-1, 1]:
-                                  for dc in [-1]:
+                              for dr in [1]:
+                                  for dc in [-1, 1]:
                                       r, c = row + dr, col + dc
                                       if self.is_valid_square(r, c):
-                                          if self.board[row-1][col] != None:
-                                              target = self.board[row-1][col]
+                                          if self.board[r][c] != None:
+                                              target = self.board[r][c]
                                               if target.player == piece.player:
                                                   if target.piece_type == PieceType.BISHOP or target.piece_type == PieceType.KNIGHT:
                                                       scores[piece.player] += 0.2 # piece on outpost
@@ -412,12 +406,12 @@ class Board:
                               scores[piece.player] += 0.2*(6-col)
                               if self.is_valid_square(row, (col-1)) and self.board[row][col-1] != None and self.board[row][col-1].player != piece.player:
                                   scores[piece.player] -= 0.2
-                              for dr in [-1]:
-                                  for dc in [-1, 1]:
+                              for dr in [-1, 1]:
+                                  for dc in [-1]:
                                       r, c = row + dr, col + dc
                                       if self.is_valid_square(r, c):
-                                          if self.board[row-1][col] != None:
-                                              target = self.board[row-1][col]
+                                          if self.board[r][c] != None:
+                                              target = self.board[r][c]
                                               if target.player == piece.player:
                                                   if target.piece_type == PieceType.BISHOP or target.piece_type == PieceType.KNIGHT:
                                                       scores[piece.player] += 0.2 # piece on outpost
@@ -427,34 +421,8 @@ class Board:
                                                       scores[piece.player] += 0.1 # attacking enemy king
                                                       scores[target.player] -= 0.5 # king in danger - avoid getting attacked by enemy pawns
         
-        # print(f"Piece counts: {piece_counts}")
-        # Calculate the average coordinates for each color
-        # avg_coords = {player: [coord_sums[player][0] / piece_counts[player], coord_sums[player][1] / piece_counts[player]] for player in Player}
-
-        # WE DO THIS BELOW
-        # avg_coords = {}
-        # for player in Player:
-        #     try:
-        #         avg_x = coord_sums[player][0] / piece_counts[player]
-        #         avg_y = coord_sums[player][1] / piece_counts[player]
-        #         avg_coords[player] = [avg_x, avg_y]
-        #     except ZeroDivisionError:
-        #         print("Zero division error")
-        #         print(f"Piece counts for {player}: {piece_counts[player]}")
-        #         print("Board:")
-        #         self.print_board()
-
-        # calculate distance of king from from friendly pieces and give penalty
         for player in Player:
-            if king_present[player] == True:
-                avg_row = coord_sums[player][0] / piece_counts[player]
-                avg_col = coord_sums[player][1] / piece_counts[player]
-
-                king_row, king_col = king_coords[player]
-                
-                distance = ((abs(king_row - avg_row))**2 + (abs(king_col - avg_col))**2)**0.5
-                scores[player] -= 0.25 * distance
-            else:
+            if not (king_present[player] == True and player in self.active_players):
                 scores[player] = -999    
         for player in Player:
             scores[player] += self.player_points[player]
@@ -465,48 +433,6 @@ class Board:
         for player in Player:
             scores[player] = round(scores[player], 2)
         return scores
-
-    # def evaluate(self):
-    #     red_king_present = False
-    #     blue_king_present = False
-    #     yellow_king_present = False
-    #     green_king_present = False
-    #     scores = {player: 0 for player in Player}
-    #     for row in range(8):
-    #         for col in range(8):
-    #             piece = self.board[row][col]
-    #             if piece:
-    #                 if not piece.is_dead and piece.player in self.active_players:
-    #                   # scores[piece.player] += self.get_piece_value(piece) * 1.25 
-    #                   scores[piece.player] += self.get_piece_value(piece)
-                      
-    #                   if piece.piece_type == PieceType.KING:
-    #                       if piece.player == Player.RED:
-    #                           red_king_present = True
-    #                       elif piece.player == Player.BLUE:
-    #                           blue_king_present = True
-    #                       elif piece.player == Player.YELLOW:
-    #                           yellow_king_present = True
-    #                       elif piece.player == Player.GREEN:
-    #                           green_king_present = True
-        
-    #     for player in Player:
-    #         scores[player] += self.player_points[player]
-    #         # scores[player] -= 20*1.25
-    #         scores[player] -= 20
-    #     if not red_king_present:
-    #         scores[Player.RED] = -999
-    #     if not blue_king_present:
-    #         scores[Player.BLUE] = -999
-    #     if not yellow_king_present:
-    #         scores[Player.YELLOW] = -999
-    #     if not green_king_present:
-    #         scores[Player.GREEN] = -999
-
-    #     # Final rounding of scores to 2 decimal places
-    #     for player in Player:
-    #         scores[player] = round(scores[player], 2)
-    #     return scores
 
     def is_game_over(self):
         return len(self.active_players) == 1
