@@ -14,7 +14,7 @@ if __name__ == '__main__':
         print(f"Searching for the best move for {board.current_player}.")
         start_time = time.time()
         root_node = MCTSNode(board)
-        MCTS(root_node, 10000)  # Run MCTS Search for 1000 iterations
+        MCTS(root_node, 10000, 5)  # Run MCTS Search for 1000 iterations
         best_move = root_node.best_move() 
         end_time = time.time()
 

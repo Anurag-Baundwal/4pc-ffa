@@ -1,4 +1,8 @@
+import math
 import random
+
+def normalize_score(score):
+        return 2 / (1 + math.exp(-score / 100)) - 1
 
 class MCTSNode:
     def __init__(self, board, parent=None, move=None):
@@ -6,19 +10,29 @@ class MCTSNode:
         self.parent = parent
         self.move = move
         self.children = []
-        self.wins = 0
+        self.score = 0
+        self.min_score = float('inf') # use 0 instead ?
         self.visits = 0
         self.untried_moves = board.get_psuedo_legal_moves(board.current_player)
 
     def select_child(self):
-        # Applying the UCB1 formula to select the best child
+        # Applying the modified UCB1 formula to select the best child
         from math import log, sqrt
         log_parent_visits = log(self.visits)
         best_score = -float('inf')
         best_child = None
         for child in self.children:
-            # UCB1 calculation
-            ucb1 = child.wins / child.visits + sqrt(2 * log_parent_visits / child.visits)
+            # Modified UCB1 calculation
+            if child.visits == 0:
+                # If a child node has not been visited yet, assign it a high priority
+                ucb1 = float('inf')
+            else:
+                avg_score = normalize_score(child.score / child.visits)
+                min_score = normalize_score(child.min_score)
+                # weighted_score = 0.5 * avg_score + 0.5 * min_score
+                weighted_score = 0.0 * avg_score + 1.0 * min_score  # Adjust weights
+                exploration_term = 0.4 * sqrt(log_parent_visits / child.visits)
+                ucb1 = weighted_score + exploration_term
             if ucb1 > best_score:
                 best_score = ucb1
                 best_child = child
@@ -34,10 +48,12 @@ class MCTSNode:
         self.children.append(new_node)
         return new_node
 
-    def simulate(self):
+    def simulate(self, depth):
         # Randomly play out the game from this state
         sim_board = self.board.copy()
-        while not sim_board.is_game_over():
+        current_depth = 0
+
+        while current_depth < depth and not sim_board.is_game_over():
             possible_moves = sim_board.get_psuedo_legal_moves(sim_board.current_player)
             if not possible_moves:
                 # Handle the case when there are no valid moves
@@ -46,8 +62,8 @@ class MCTSNode:
                 break
             move = random.choice(possible_moves)
             sim_board.make_move(move)
-        # scores = sim_board.evaluate()
-        scores = sim_board.player_points
+        scores = sim_board.evaluate()
+        # scores = sim_board.player_points
         # Assuming self.board.current_player gives the current root player for the node #
         return scores
 
@@ -55,37 +71,45 @@ class MCTSNode:
     def backpropagate(self, result):
         # Update current node and propagate back to the root node
         self.visits += 1
-        # Check if the root player's score is the highest
-        if self.parent:  # Only non-root nodes should check their parents
-            root_player = self.board.current_player
-            if result[root_player] == max(result.values()):
-                self.wins += 1
+        root_player = self.board.current_player
+        if abs(result[root_player]-(-999)) < 100:  # Handle the case when the simulation resulted in checkmate (score close to -999)
+            self.score = -999
+            self.min_score = -999
+        else:
+            self.score += result[root_player]  # Accumulate the score of the root player
+            self.min_score = min(self.min_score, result[root_player])  # Update the minimum score
+
         if self.parent:
             self.parent.backpropagate(result)
-    
+
     def best_move(self):
-        best_win_ratio = -float('inf')
+        best_score = -float('inf')
         best_node = None
+
         for child in self.children:
-            if child.visits > 0:  # Ensure we avoid division by zero
-                win_ratio = child.wins / child.visits
-                if win_ratio > best_win_ratio:
-                    best_win_ratio = win_ratio
+            if child.visits > 0:
+                avg_score = child.score / child.visits  # Renamed from child.wins
+                if avg_score > best_score:
+                    best_score = avg_score
                     best_node = child
         return best_node.move if best_node else None
 
 
-def MCTS(root, iterations):
+def MCTS(root, iterations, simulation_depth):
     for i in range(iterations):
         node = root
+
         # Selection
         while node.untried_moves == [] and node.children != []:
             node = node.select_child()
+
         # Expansion
         if node.untried_moves != []:
             node = node.expand()
+
         # Simulation
-        result = node.simulate()
+        result = node.simulate(simulation_depth)
+
         # Backpropagation
         node.backpropagate(result)
 
