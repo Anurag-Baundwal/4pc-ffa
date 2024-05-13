@@ -39,10 +39,15 @@ class MCTSNode:
         sim_board = self.board.copy()
         while not sim_board.is_game_over():
             possible_moves = sim_board.get_psuedo_legal_moves(sim_board.current_player)
+            if not possible_moves:
+                # Handle the case when there are no valid moves
+                # You can either terminate the simulation or take an appropriate action
+                # TODO: print the board and see what kind of position it is that there is a player who's in the active players and it's their turn but they have no moves, even psuedo legal moves.
+                break
             move = random.choice(possible_moves)
             sim_board.make_move(move)
-        scores = sim_board.evaluate()
-        # scores = sim_board.player_points
+        # scores = sim_board.evaluate()
+        scores = sim_board.player_points
         # Assuming self.board.current_player gives the current root player for the node #
         return scores
 
