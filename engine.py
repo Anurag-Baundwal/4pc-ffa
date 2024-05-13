@@ -1277,33 +1277,33 @@ if __name__ == '__main__':
 
     # FOR TESTING MOVE GEN
     # player_to_generate_moves_for = board.current_player
-    player_to_generate_moves_for = Player.GREEN ################################################## change back to board.current_player?
-    board.current_player = player_to_generate_moves_for
-    print ("Current state of the board: ")
-    board.print_board_4()
-    psuedo_legal_moves = board.get_psuedo_legal_moves(player_to_generate_moves_for)
-    legal_moves = board.get_legal_moves(player_to_generate_moves_for)
-    time.sleep(3)
-    for i, move in enumerate(legal_moves):
-        print(f"Move generated {i}: ({move.from_loc.row}, {move.from_loc.col}) to ({move.to_loc.row}, {move.to_loc.col}) ")
-        print(f"Making move {i}")
-        print(f"Scores: {board.evaluate}")
-        print(f"Player points: {board.player_points}")
-        captured_piece, eliminated_players = board.make_move(move)
-        board.print_board_4()
-        print(f"Turn: {board.current_player}")
-        print(f"Active players: {board.active_players}\n")
-        time.sleep(0.5)
-        board.undo_move(move, captured_piece, eliminated_players)
-        print(f"Undid move {i}")
-        print(f"Scores: {board.evaluate()}")
-        print(f"Player points: {board.player_points}")
-        board.print_board_4()
-        print(f"Turn: {board.current_player}")
-        print(f"Active players: {board.active_players}")
-        print(f"Player points: {board.player_points}\n")
-        time.sleep(0.5)
-    print(f"Total moves generated: psuedo_legal - {len(psuedo_legal_moves)}, legal - {len(legal_moves)}.")
+    # player_to_generate_moves_for = Player.GREEN ################################################## change back to board.current_player?
+    # board.current_player = player_to_generate_moves_for
+    # print ("Current state of the board: ")
+    # board.print_board_4()
+    # psuedo_legal_moves = board.get_psuedo_legal_moves(player_to_generate_moves_for)
+    # legal_moves = board.get_legal_moves(player_to_generate_moves_for)
+    # time.sleep(3)
+    # for i, move in enumerate(legal_moves):
+    #     print(f"Move generated {i}: ({move.from_loc.row}, {move.from_loc.col}) to ({move.to_loc.row}, {move.to_loc.col}) ")
+    #     print(f"Making move {i}")
+    #     print(f"Scores: {board.evaluate}")
+    #     print(f"Player points: {board.player_points}")
+    #     captured_piece, eliminated_players = board.make_move(move)
+    #     board.print_board_4()
+    #     print(f"Turn: {board.current_player}")
+    #     print(f"Active players: {board.active_players}\n")
+    #     time.sleep(0.5)
+    #     board.undo_move(move, captured_piece, eliminated_players)
+    #     print(f"Undid move {i}")
+    #     print(f"Scores: {board.evaluate()}")
+    #     print(f"Player points: {board.player_points}")
+    #     board.print_board_4()
+    #     print(f"Turn: {board.current_player}")
+    #     print(f"Active players: {board.active_players}")
+    #     print(f"Player points: {board.player_points}\n")
+    #     time.sleep(0.5)
+    # print(f"Total moves generated: psuedo_legal - {len(psuedo_legal_moves)}, legal - {len(legal_moves)}.")
 
     # PSUEDO LEGAL MOVES
     # psuedo_legal_moves =
@@ -1335,7 +1335,7 @@ if __name__ == '__main__':
     for _ in range (moves_to_play):
         start_time = time.time()
         # best_move, scores = get_best_move(board, 2)
-        best_move, scores = get_best_move(board, 4) # depth 3 search so that to see if red and yellow will mate green
+        best_move, scores = get_best_move(board, 2) # depth 3 search so that to see if red and yellow will mate green
         end_time = time.time()
         execution_time = end_time - start_time
         print("Search completed")
