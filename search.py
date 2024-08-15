@@ -1,3 +1,4 @@
+# 4 player chaturaji chess engine - search.py
 from pieces import Player
 
 nodes = 0
@@ -5,7 +6,7 @@ nodes = 0
 def get_nodes():
     return nodes
 
-def max_4(board, root_player, depth, alpha, beta):
+def max_4(board, root_player, depth, alpha, beta): # paranoid search
     global nodes
     nodes += 1
     
