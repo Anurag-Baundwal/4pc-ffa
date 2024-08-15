@@ -1,7 +1,36 @@
-# 4 player chaturaji chess engine - board.py 
+# Derived from engine.py
 
-import copy
-from pieces import Piece, PieceType, Player
+import random
+import cProfile
+from enum import Enum
+import time
+
+nodes = 0
+
+class PieceType(Enum):
+    PAWN = 1
+    KNIGHT = 2
+    BISHOP = 3
+    ROOK = 4
+    QUEEN = 5
+    KING = 6
+    ONE_POINT_QUEEN = 7
+    #RANDO_ZOMBIE_KING = 8
+    DEAD_KING = 9
+
+
+class Player(Enum):
+    RED = 0
+    BLUE = 1
+    YELLOW = 2
+    GREEN = 3
+
+class Piece:
+    def __init__(self, player, piece_type):
+        self.player = player
+        self.piece_type = piece_type
+        self.is_dead = False
+
 
 class BoardLocation:
     def __init__(self, row, col):
@@ -13,7 +42,7 @@ class Move:
         self.from_loc = from_loc
         self.to_loc = to_loc
         self.promotion_piece_type = promotion_piece_type
-        
+
 class Board:
     def __init__(self):
         self.board = [[None] * 8 for _ in range(8)]
@@ -60,10 +89,6 @@ class Board:
         if not (0 <= row < 8 and 0 <= col < 8):
             return False
         return True
-    
-    def copy(self):
-        # Create a deep copy of this board
-        return copy.deepcopy(self)
 
     def get_psuedo_legal_moves(self, player): # TODO: check if the player is dead?
         psuedo_legal_moves = []
@@ -84,8 +109,6 @@ class Board:
                             psuedo_legal_moves.extend(self.get_rook_moves(row, col))
                         case PieceType.KING:
                             psuedo_legal_moves.extend(self.get_king_moves(row, col))
-                            # psuedo_legal_moves = self.get_king_moves(row, col) + psuedo_legal_moves
-
 
         return psuedo_legal_moves
 
@@ -295,145 +318,49 @@ class Board:
                 return 3
             case PieceType.DEAD_KING:
                 return 3
-    
     # eval ideas
     # for king -> +10 cp for every friendly piece adjancent to king and -10 for every enemy piece
-    # for pawns -> bonus for moving forward towards promotion | blocked pawn penalty
+    # for pawns -> bonus for moving forward towards promotion
     # for pieces -> small penalty for being on back rank
     def evaluate(self):
+        red_king_present = False
+        blue_king_present = False
+        yellow_king_present = False
+        green_king_present = False
         scores = {player: 0 for player in Player}
-
-        king_coords = {player: None for player in Player}
-        coord_sums = {player: [0, 0] for player in Player}
-        piece_counts = {player: 0 for player in Player}
-        king_present = {player: False for player in Player}
-
         for row in range(8):
             for col in range(8):
                 piece = self.board[row][col]
                 if piece:
-                    coord_sums[piece.player][0] += row
-                    coord_sums[piece.player][1] += col
-                    piece_counts[piece.player] += 1
-                    if not piece.is_dead and piece.player in self.active_players:
-                      # scores[piece.player] += self.get_piece_value(piece) * 1.25 
+                    if not piece.is_dead and piece.player in board.active_players:
                       scores[piece.player] += self.get_piece_value(piece)
-
-                      if piece.piece_type == PieceType.KNIGHT or piece.piece_type == PieceType.BISHOP:
-                          if ((piece.player == Player.RED and row == 7) # on back rank
+                      if piece.piece_type != PieceType.PAWN and piece.piece_type != PieceType.KING:
+                          if ((piece.player == Player.RED and row == 7) 
                           or (piece.player == Player.YELLOW and row == 0)
                           or (piece.player == Player.GREEN and col == 7)
                           or (piece.player == Player.BLUE and col == 0)):
-                              scores[piece.player] -= 0.4 # penalty for undeveloped pieces
-
-                      
+                              scores[piece.player] -= 0.05
                       if piece.piece_type == PieceType.KING:
-                          for dr in [-1, 0, 1]:
-                              for dc in [-1, 0, 1]:
-                                  if dr == 0 and dc == 0:
-                                      continue
-                                  r, c = row + dr, col + dc
-                                  if self.is_valid_square(r, c) and (self.board[r][c] is not None):
-                                      if self.board[r][c].player == piece.player:
-                                          if self.board[r][c].piece_type == PieceType.PAWN:
-                                              scores[piece.player] += 0.2 # king near friendly pawn
-                                          else:
-                                              scores[piece.player] += 0.05 # king near friendly piece
-                                      else:
-                                          if self.board[r][c].player not in self.active_players:
-                                              scores[piece.player] += 0.15 # shelter from dead pieces
-                                          else:
-                                              scores[piece.player] -= 0.15 # king near enemy piece
-                          # Store the coordinates of the king for each color
-                          king_coords[piece.player] = [row, col]
-                          
-                          king_present[piece.player] = True
-                          
-                      if piece.piece_type == PieceType.PAWN:
                           if piece.player == Player.RED:
-                              scores[piece.player] += 0.2*(6-row)
-                              if self.is_valid_square((row-1), col) and self.board[row-1][col] != None and self.board[row-1][col].player != piece.player:
-                                  scores[piece.player] -= 0.2 # blocked pawn
-                              for dr in [-1]:
-                                  for dc in [-1, 1]:
-                                      r, c = row + dr, col + dc
-                                      if self.is_valid_square(r, c):
-                                          if self.board[r][c] != None:
-                                              target = self.board[r][c]
-                                              if target.player == piece.player:
-                                                  if target.piece_type == PieceType.BISHOP or target.piece_type == PieceType.KNIGHT:
-                                                      scores[piece.player] += 0.2 # piece on outpost
-                                              else:
-                                                  scores[piece.player] += 0.2 # attacking enemy piece
-                                                  if target.piece_type == PieceType.KING:
-                                                      scores[piece.player] += 0.1 # attacking enemy king
-                                                      scores[target.player] -= 0.5 # king in danger - avoid getting attacked by enemy pawns
+                              red_king_present = True
                           elif piece.player == Player.BLUE:
-                              scores[piece.player] += 0.2*(col-1)
-                              if self.is_valid_square(row, (col+1)) and self.board[row][col+1] != None and self.board[row][col+1].player != piece.player:
-                                  scores[piece.player] -= 0.2
-                              for dr in [-1, 1]:
-                                  for dc in [1]:
-                                      r, c = row + dr, col + dc
-                                      if self.is_valid_square(r, c):
-                                          if self.board[r][c] != None:
-                                              target = self.board[r][c]
-                                              if target.player == piece.player:
-                                                  if target.piece_type == PieceType.BISHOP or target.piece_type == PieceType.KNIGHT:
-                                                      scores[piece.player] += 0.2 # piece on outpost
-                                              else:
-                                                  scores[piece.player] += 0.2 # attacking enemy piece
-                                                  if target.piece_type == PieceType.KING:
-                                                      scores[piece.player] += 0.1 # attacking enemy king
-                                                      scores[target.player] -= 0.5 # king in danger - avoid getting attacked by enemy pawns
+                              blue_king_present = True
                           elif piece.player == Player.YELLOW:
-                              scores[piece.player] += 0.2*(row-1)
-                              if self.is_valid_square((row+1), col) and self.board[row+1][col] != None and self.board[row+1][col].player != piece.player:
-                                  scores[piece.player] -= 0.2
-                              for dr in [1]:
-                                  for dc in [-1, 1]:
-                                      r, c = row + dr, col + dc
-                                      if self.is_valid_square(r, c):
-                                          if self.board[r][c] != None:
-                                              target = self.board[r][c]
-                                              if target.player == piece.player:
-                                                  if target.piece_type == PieceType.BISHOP or target.piece_type == PieceType.KNIGHT:
-                                                      scores[piece.player] += 0.2 # piece on outpost
-                                              else:
-                                                  scores[piece.player] += 0.2 # attacking enemy piece
-                                                  if target.piece_type == PieceType.KING:
-                                                      scores[piece.player] += 0.1 # attacking enemy king
-                                                      scores[target.player] -= 0.5 # king in danger - avoid getting attacked by enemy pawns
+                              yellow_king_present = True
                           elif piece.player == Player.GREEN:
-                              scores[piece.player] += 0.2*(6-col)
-                              if self.is_valid_square(row, (col-1)) and self.board[row][col-1] != None and self.board[row][col-1].player != piece.player:
-                                  scores[piece.player] -= 0.2
-                              for dr in [-1, 1]:
-                                  for dc in [-1]:
-                                      r, c = row + dr, col + dc
-                                      if self.is_valid_square(r, c):
-                                          if self.board[r][c] != None:
-                                              target = self.board[r][c]
-                                              if target.player == piece.player:
-                                                  if target.piece_type == PieceType.BISHOP or target.piece_type == PieceType.KNIGHT:
-                                                      scores[piece.player] += 0.2 # piece on outpost
-                                              else:
-                                                  scores[piece.player] += 0.2 # attacking enemy piece
-                                                  if target.piece_type == PieceType.KING:
-                                                      scores[piece.player] += 0.1 # attacking enemy king
-                                                      scores[target.player] -= 0.5 # king in danger - avoid getting attacked by enemy pawns
+                              green_king_present = True
         
         for player in Player:
-            if not (king_present[player] == True and player in self.active_players):
-                scores[player] = -999    
-        for player in Player:
             scores[player] += self.player_points[player]
-            # scores[player] -= 20*1.25
             scores[player] -= 20
-
-        # Final rounding of scores to 2 decimal places
-        for player in Player:
-            scores[player] = round(scores[player], 2)
+        if not red_king_present:
+            scores[Player.RED] = -999
+        if not blue_king_present:
+            scores[Player.BLUE] = -999
+        if not yellow_king_present:
+            scores[Player.YELLOW] = -999
+        if not green_king_present:
+            scores[Player.GREEN] = -999
         return scores
 
     def is_game_over(self):
@@ -593,10 +520,296 @@ class Board:
                     print("[ ]", end="")
             print()
 
-    def resign(self): 
+    # RESIGNATION / FLAGGING: 
+    # Eliminate the player and adjust turn
+    
+    # def resign(self, player): # PROBABLY NEEDS MORE WORK
+    #     if self.current_player == player: # can only resign when it's their turn
+    #         self.resigned_players.append(player)
+    #         self.active_players.remove(player)
+    #         for row in range(14):
+    #             for col in range(14):
+    #                 piece = self.board[row][col]
+    #                 if piece:
+    #                     if not piece.is_dead and piece.player == player:
+    #                       if piece.piece_type != PieceType.KING:
+    #                           piece.is_dead = True
+    #                       else:
+    #                           piece.piece_type = PieceType.RANDO_ZOMBIE_KING
+    def resign(self): # PROBABLY NEEDS MORE WORK
         player = self.current_player
+        # self.resigned_players.append(player)
+        # self.active_players.remove(player)
+        # for row in range(8):
+        #     for col in range(8):
+        #         piece = self.board[row][col]
+        #         if piece:
+        #             if not piece.is_dead and piece.player == player:
+        #               if piece.piece_type != PieceType.KING:
+        #                   piece.is_dead = True
+        #               else:
+        #                   piece.piece_type = PieceType.DEAD_KING
         self.eliminate_player(player) 
         if len(self.active_players) != 1:
             self.current_player = Player((self.current_player.value + 1) % 4)
             while (self.current_player not in self.active_players):
                 self.current_player = Player((self.current_player.value + 1) % 4)
+
+
+
+# def max_4(board, root_player, depth): # add root player parameter? -> def negamax4(board, depth, root_player):
+#     global nodes
+#     nodes += 1
+#     if depth == 0 or board.is_game_over():
+#         #print("Running board.evaluate()")
+#         return board.evaluate()
+
+#     max_scores = {p: float('-inf') if p != root_player else float('inf') for p in board.active_players}
+#     player = board.current_player
+
+#     for move in board.get_psuedo_legal_moves(player):
+#         captured_piece, eliminated_players = board.make_move(move)
+
+#         scores = max_4(board, root_player, depth - 1)
+        
+#         if scores[player] > max_scores[player]:
+#             for p in Player: 
+#                 max_scores[p] = scores[p]
+
+#         board.undo_move(move, captured_piece, eliminated_players)
+
+#     return max_scores
+
+def max_4(board, root_player, depth):
+    global nodes
+    nodes += 1
+
+    if depth == 0 or board.is_game_over():
+        return board.evaluate()
+
+    if board.current_player == root_player:
+        max_scores = {p: float('-inf') if p != root_player else float('-inf') for p in set(Player)}
+    else:
+        max_scores = {p: float('-inf') if p != root_player else float('inf') for p in set(Player)}
+    player = board.current_player
+    for move in board.get_psuedo_legal_moves(player):
+        captured_piece, eliminated_players = board.make_move(move)
+        scores = max_4(board, root_player, depth - 1)
+
+        if player == root_player:
+            if scores[player] >= max_scores[player]:
+                for p in Player:
+                    max_scores[p] = scores[p]
+        else:
+            if scores[root_player] <= max_scores[root_player]:
+                for p in Player:
+                    max_scores[p] = scores[p]
+
+        board.undo_move(move, captured_piece, eliminated_players)
+
+    return max_scores
+
+def get_best_move(board, depth):
+    best_move = None
+    max_score = float('-inf')
+    best_scores = None
+
+    global nodes
+    nodes = 0
+    root_player = board.current_player
+    print(root_player)
+    for move in board.get_psuedo_legal_moves(board.current_player):
+        captured_piece, eliminated_players = board.make_move(move)
+        scores = max_4(board, root_player, depth - 1)
+        # print(scores)
+        if scores[root_player] >= max_score:
+            max_score = scores[root_player]
+            best_move = move
+            best_scores = scores
+
+        board.undo_move(move, captured_piece, eliminated_players)
+    return best_move, best_scores
+
+if __name__ == '__main__':
+    board = Board()
+    #board.make_move(Move(BoardLocation(6, 0), BoardLocation(11, 3)))  # Blue queen(6, 0) to (11, 3)
+
+    # # Setting up the board such that yellow has mate in 1 on green
+    # board.make_move(Move(BoardLocation(12, 7), BoardLocation(11, 7))) # red pawn move ############ fix (13,7) and 12,7 to 12, 7 and 11,7
+    # board.make_move(Move(BoardLocation(10, 1), BoardLocation(10, 3))) # blue pawn move
+    # board.make_move(Move(BoardLocation(9, 1), BoardLocation(9, 2))) # blue pawn move
+    # board.make_move(Move(BoardLocation(1, 8), BoardLocation(2, 8))) # yellow pawn move
+    # board.make_move(Move(BoardLocation(13, 8), BoardLocation(11, 6))) # red bishop move
+    # # board.current_player = Player.YELLOW
+    # board.current_player = Player.GREEN
+
+    # BUG: GREEN WON'T TRY TO STOP MATE IN 1
+    # fixed with update to negamax4
+    # if scores[player] > max_scores[player]:
+    #         # for p in board.active_players: # BUG
+    #         for p in Player: # fix
+    #             max_scores[p] = scores[p] ## makes sense? or update something else instead of max_scores?
+
+    ###################################
+    # # check eval after mating green
+    # board.make_move((Move(BoardLocation(0, 7), BoardLocation(5, 12)))) # yellow checkmates green
+    # board.print_board_4()
+    # print(board.evaluate())
+
+    ##############################3
+
+    # Setting up the board such that green's knight is hanging and red can take it
+    # See if green will move the knight and stop red from taking it
+    # board.make_move(Move(BoardLocation(12, 10), BoardLocation(11, 10))) # red pawn move
+    # board.make_move(Move(BoardLocation(9, 13), BoardLocation(10, 11))) # Green knight move - hang it so that red can take it next turn
+    # board.current_player = Player.GREEN
+
+    # board.current_player = Player.GREEN
+    
+
+    # FOR TESTING MOVE GEN ---------------------------------------------------------------------------------------------------------------------------
+    # player_to_generate_moves_for = board.current_player
+    # player_to_generate_moves_for = Player.RED ################################################## change back to board.current_player?
+    # board.current_player = player_to_generate_moves_for
+    # print ("Current state of the board: ")
+    # board.print_board()
+    # psuedo_legal_moves = board.get_psuedo_legal_moves(player_to_generate_moves_for)
+    # # legal_moves = board.get_legal_moves(player_to_generate_moves_for)
+    # time.sleep(3)
+    # for i, move in enumerate(psuedo_legal_moves):
+    #     print(f"Move generated {i+1}: ({move.from_loc.row}, {move.from_loc.col}) to ({move.to_loc.row}, {move.to_loc.col}) ")
+    #     print(f"Making move {i+1}")
+    #     print(f"Scores: {board.evaluate}")
+    #     print(f"Player points: {board.player_points}")
+    #     captured_piece, eliminated_players = board.make_move(move)
+    #     board.print_board()
+    #     print(f"Turn: {board.current_player}")
+    #     print(f"Active players: {board.active_players}\n")
+    #     time.sleep(0.5)
+    #     board.undo_move(move, captured_piece, eliminated_players)
+    #     print(f"Undid move {i+1}")
+    #     print(f"Scores: {board.evaluate()}")
+    #     print(f"Player points: {board.player_points}")
+    #     board.print_board()
+    #     print(f"Turn: {board.current_player}")
+    #     print(f"Active players: {board.active_players}")
+    #     print(f"Player points: {board.player_points}\n")
+    #     time.sleep(0.5)
+    # print(f"Total moves generated: psuedo_legal - {len(psuedo_legal_moves)}")
+
+    # PSUEDO LEGAL MOVES
+    # psuedo_legal_moves =
+    # for move in psuedo_legal_moves:
+    #     print
+    ####################################------------------------------------------------------------------------------
+    # FOR PROFILING
+    # cProfile.run('get_best_move(board, 1)', 'profile_results') # Not good because we can't get the returned values
+
+    def get_best_move_wrapper(board, depth):
+        return get_best_move(board, depth)
+
+    # Calling get_best_move and looking at the output
+    # start_time = time.time() #########################################################################
+
+    # PROFILING
+    # # Profile the get_best_move_wrapper function
+    # prof = cProfile.Profile()
+    # globals_dict = globals().copy()
+    # globals_dict['get_best_move_wrapper'] = get_best_move_wrapper
+    # prof.runctx('result = get_best_move_wrapper(board, 2)', globals_dict, locals())
+    # prof.dump_stats('profile_results')
+
+    # # Retrieve the return values from the locals dictionary
+    # best_move, scores = locals()['result']
+
+    ######################################################################################################
+    # moves_to_play = 4 # how many moves do we want to play out
+    # for _ in range (moves_to_play):
+    #     start_time = time.time()
+    #     # best_move, scores = get_best_move(board, 2)
+    #     best_move, scores = get_best_move(board, 5) # depth 3 search so that to see if red and yellow will mate green
+    #     end_time = time.time()
+    #     execution_time = end_time - start_time
+    #     print("Search completed")
+    #     print(f"Number of nodes visited: {nodes + 1}")
+    #     print(f"Execution time for this search: {execution_time} seconds")
+    #     nps = (nodes + 1) / execution_time
+    #     print(f"Nodes per second (NPS): {nps}")
+    #     if best_move:
+    #         print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}), Scores: {scores} ")
+    #         # What happens if we play the best move
+    #         board.make_move(best_move)
+    #         print("Board state after playing best move: ")
+    #         board.print_board()
+    #         print("Turn: ", board.current_player)
+    #         print("Active players: ", board.active_players)
+    #         print("board.evaluate() output: ", board.evaluate(), "\n")
+    #     else:
+    #         print("No valid moves found or game is over. \n")
+    ######################################################################################################
+
+
+    ########## TEST IF CHECKMATE IS BEING DETECTED ########
+    # board.make_move(Move(BoardLocation(0, 7), BoardLocation(5, 12)))
+    # print(board.active_players) # confirm that this move is checkmate
+    # scores = board.evaluate()
+    # print(scores)
+    # print(board.player_points)
+    # print(board.current_player)
+    ########################################################
+
+    # print(board.active_players)
+    # board.make_move(Move(BoardLocation(0, 7), BoardLocation(5, 12)))
+    # print(board.active_players)
+    ##  -----------------------------------------------------------------------------------------------------------------------
+    # print("Making two players resign")
+    # board.resign()
+    # print(f"Resigned. Active players: {board.active_players}")
+    # board.resign()
+    # print("Done")
+    # print(f"Resigned. Active players: {board.active_players}")
+    # print("Printing the board:")
+    # board.print_board()
+ 
+    board.make_move((Move(BoardLocation(0, 4), BoardLocation(0, 3)))) # yellow king move
+    board.make_move((Move(BoardLocation(4, 6), BoardLocation(4, 5)))) # green pawn move
+    board.make_move((Move(BoardLocation(5, 7), BoardLocation(4, 6)))) # green bishop move
+
+    board.make_move((Move(BoardLocation(2, 0), BoardLocation(5, 1)))) # green bishop move # will red take this free bishop
+    board.make_move((Move(BoardLocation(0, 5), BoardLocation(3, 5)))) # green bishop move # will red take this free bishop
+
+    board.current_player = Player.RED
+    # board.make_move((Move(BoardLocation(4, 6), BoardLocation(7, 3)))) # green bishop move
+    print(board.evaluate())
+    print(board.player_points)
+    # board.make_move((Move(BoardLocation(4, 6), BoardLocation(7, 4))))
+    # board.make_move((Move(BoardLocation(7, 4), BoardLocation(7, 5))))
+    board.print_board()
+    #######################################
+    # while not board.is_game_over():
+    # while False:
+    for i in range(1):
+        print(f"Searching for the best move for {board.current_player}.")
+        start_time = time.time()
+        best_move, scores = get_best_move(board, 4) # depth 3 search so that to see if red and yellow will mate green
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print("Search completed")
+        print(f"Number of nodes visited: {nodes + 1}")
+        print(f"Execution time for this search: {execution_time} seconds")
+        nps = (nodes + 1) / (execution_time+0.001)
+        print(f"Nodes per second (NPS): {nps}")
+        if best_move:
+            print(f"Best move: ({best_move.from_loc.row}, {best_move.from_loc.col}) to ({best_move.to_loc.row}, {best_move.to_loc.col}), Scores: {scores} ")
+            # What happens if we play the best move
+            board.make_move(best_move)
+            print("Board state after playing best move: ")
+            board.print_board()
+            print("Turn: ", board.current_player)
+            print("Active players: ", board.active_players)
+            print("board.evaluate() output: ", board.evaluate(), "\n")
+            print(f"Points: {board.player_points}")
+        else:
+            print("No valid moves found or game is over. ")
+
+    print(f"Game over! Final scores: {board.player_points}")

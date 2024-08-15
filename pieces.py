@@ -1,3 +1,5 @@
+# pieces.py
+
 from enum import Enum
 
 class PieceType(Enum):
