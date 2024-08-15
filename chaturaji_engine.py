@@ -15,7 +15,7 @@ if __name__ == '__main__':
     for i in range(100):
         print(f"Searching for the best move for {board.current_player}.")
         start_time = time.time()
-        best_move, scores = get_best_move(board, 5) # fixed depth search
+        best_move, scores = get_best_move(board, 4) # fixed depth search
         end_time = time.time()
         nodes = get_nodes()
         execution_time = end_time - start_time
