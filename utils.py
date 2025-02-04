@@ -76,6 +76,8 @@ def parse_board_from_fen(fen_string):
                 if player is not None and piece_type is not None:
                     piece = Piece(player, piece_type)
                     piece.is_dead = is_dead
+                    if is_dead and piece_type == PieceType.KING: 
+                        piece.piece_type = PieceType.DEAD_KING
                     board.board[row - 3][col] = piece
                 col += 1
     # Part 0: Set current player
