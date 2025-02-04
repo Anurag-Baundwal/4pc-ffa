@@ -131,7 +131,10 @@ class Board:
                     moves.append(Move(BoardLocation(row, col), BoardLocation(row + 1, col - 1)))
 
         # Promotion moves
-        promotion_row = 7 if player == Player.RED else 7 if player == Player.BLUE else 0 if player == Player.YELLOW else 0
+        promotion_row = (0 if player == Player.RED
+                 else 7 if player == Player.BLUE
+                 else 7 if player == Player.YELLOW
+                 else 0)
         if (player == Player.RED and row == promotion_row) or (player == Player.BLUE and col == promotion_row) or (player == Player.YELLOW and row == promotion_row) or (player == Player.GREEN and col == promotion_row):
             promotion_moves = []
             for move in moves:
